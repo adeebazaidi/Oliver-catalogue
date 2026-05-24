@@ -66,61 +66,69 @@ function renderViewMode(container, product) {
           </div>
         </div>
 
-        ${product.imageUrl ? `
-          <div class="product-detail__image">
-            <img src="${product.imageUrl}" alt="${product.name}" onerror="this.parentElement.innerHTML='<div class=product-detail__image-placeholder>${icons.image}<br>Image could not be loaded</div>'">
+        <div style="display: flex; gap: var(--space-xl); flex-wrap: wrap; align-items: flex-start;">
+          <!-- Left side: Image -->
+          <div style="flex: 1; min-width: 300px;">
+            ${product.imageUrl ? `
+              <div class="product-detail__image" style="margin-bottom: 0;">
+                <img src="${product.imageUrl}" alt="${product.name}" onerror="this.parentElement.innerHTML='<div class=\\'product-detail__image-placeholder\\'><div style=\\'font-family:var(--font-heading);font-size:4rem;color:var(--color-cream);margin-bottom:var(--space-md);\\'>${initials}</div>No image provided</div>'">
+              </div>
+            ` : `
+              <div class="product-detail__image" style="margin-bottom: 0;">
+                <div class="product-detail__image-placeholder">
+                  <div style="font-family:var(--font-heading);font-size:4rem;color:var(--color-cream);margin-bottom:var(--space-md);">${initials}</div>
+                  No image provided
+                </div>
+              </div>
+            `}
           </div>
-        ` : `
-          <div class="product-detail__image">
-            <div class="product-detail__image-placeholder">
-              <div style="font-family:var(--font-heading);font-size:4rem;color:var(--color-cream);margin-bottom:var(--space-md);">${initials}</div>
-              No image provided
-            </div>
-          </div>
-        `}
 
-        <div class="card" style="padding:var(--space-xl);margin-bottom:var(--space-xl);">
-          <div class="product-detail__info-grid">
-            <div class="product-detail__field">
-              <div class="product-detail__field-label">Price</div>
-              <div class="product-detail__field-value" style="color:var(--color-primary);font-size:1.35rem;font-family:var(--font-heading);">
-                ₹${product.price.toLocaleString('en-IN')}
+          <!-- Right side: Details -->
+          <div style="flex: 2; min-width: 300px; display: flex; flex-direction: column; gap: var(--space-md);">
+            <div class="card" style="padding:var(--space-xl);">
+              <div class="product-detail__info-grid">
+                <div class="product-detail__field">
+                  <div class="product-detail__field-label">Price</div>
+                  <div class="product-detail__field-value" style="color:var(--color-primary);font-size:1.35rem;font-family:var(--font-heading);">
+                    ₹${product.price.toLocaleString('en-IN')}
+                  </div>
+                </div>
+                <div class="product-detail__field">
+                  <div class="product-detail__field-label">Size</div>
+                  <div class="product-detail__field-value">${product.size || '—'}</div>
+                </div>
+                <div class="product-detail__field">
+                  <div class="product-detail__field-label">Material</div>
+                  <div class="product-detail__field-value">${product.material || '—'}</div>
+                </div>
+                <div class="product-detail__field">
+                  <div class="product-detail__field-label">Categories</div>
+                  <div class="product-detail__field-value">
+                    ${product.categories.length > 0
+                      ? product.categories.map(c => `<span class="badge badge-gold" style="margin-right:4px;margin-bottom:4px;">${c}</span>`).join('')
+                      : '—'}
+                  </div>
+                </div>
               </div>
             </div>
-            <div class="product-detail__field">
-              <div class="product-detail__field-label">Size</div>
-              <div class="product-detail__field-value">${product.size || '—'}</div>
-            </div>
-            <div class="product-detail__field">
-              <div class="product-detail__field-label">Material</div>
-              <div class="product-detail__field-value">${product.material || '—'}</div>
-            </div>
-            <div class="product-detail__field">
-              <div class="product-detail__field-label">Categories</div>
-              <div class="product-detail__field-value">
-                ${product.categories.length > 0
-                  ? product.categories.map(c => `<span class="badge badge-gold" style="margin-right:4px;margin-bottom:4px;">${c}</span>`).join('')
-                  : '—'}
+
+            ${product.imageUrl ? `
+              <div class="card" style="padding:var(--space-lg);">
+                <div class="product-detail__field">
+                  <div class="product-detail__field-label">Image URL</div>
+                  <div class="product-detail__field-value text-sm" style="word-break:break-all;color:var(--text-secondary);">
+                    ${product.imageUrl}
+                  </div>
+                </div>
               </div>
+            ` : ''}
+
+            <div style="margin-top:var(--space-sm);display:flex;gap:var(--space-sm);font-size:0.8rem;color:var(--text-muted);">
+              <span>Created: ${new Date(product.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}</span>
+              <span>·</span>
+              <span>Updated: ${new Date(product.updatedAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}</span>
             </div>
           </div>
-        </div>
-
-        ${product.imageUrl ? `
-          <div class="card" style="padding:var(--space-lg);">
-            <div class="product-detail__field">
-              <div class="product-detail__field-label">Image URL</div>
-              <div class="product-detail__field-value text-sm" style="word-break:break-all;color:var(--text-secondary);">
-                ${product.imageUrl}
-              </div>
-            </div>
-          </div>
-        ` : ''}
-
-        <div style="margin-top:var(--space-xl);display:flex;gap:var(--space-sm);font-size:0.8rem;color:var(--text-muted);">
-          <span>Created: ${new Date(product.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}</span>
-          <span>·</span>
-          <span>Updated: ${new Date(product.updatedAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}</span>
         </div>
       </div>
     </div>
@@ -160,7 +168,7 @@ function renderEditMode(container, product) {
 
   container.innerHTML = `
     <div class="page">
-      <div class="container form-page">
+      <div class="container form-page" style="max-width: 1000px;">
         <div class="breadcrumb">
           <a href="#/">Products</a>
           <span class="breadcrumb__separator">${icons.chevronRight}</span>
@@ -173,45 +181,55 @@ function renderEditMode(container, product) {
         <p class="form-page__subtitle">Update the product information below.</p>
 
         <form id="edit-form">
-          <div class="form-group">
-            <label class="form-label" for="edit-name">Product Name *</label>
-            <input type="text" class="form-input" id="edit-name" value="${product.name}" required>
-          </div>
-
-          <div class="form-row">
-            <div class="form-group">
-              <label class="form-label" for="edit-price">Price (₹) *</label>
-              <input type="number" class="form-input" id="edit-price" value="${product.price}" min="0" step="0.01" required>
+          <div style="display: flex; gap: var(--space-xl); flex-wrap: wrap; align-items: flex-start;">
+            
+            <!-- Left Side: Image -->
+            <div style="flex: 1; min-width: 300px; display: flex; flex-direction: column; gap: var(--space-md);">
+              <div class="image-preview" id="edit-image-preview" style="width: 100%; aspect-ratio: 1; display: flex; align-items: center; justify-content: center; background: var(--bg-card); border-radius: var(--radius-md); overflow: hidden; border: 1px solid var(--border-color, #e2e8f0); box-shadow: var(--shadow-sm, 0 1px 2px rgba(0,0,0,0.05));">
+                ${product.imageUrl
+                  ? `<img src="${product.imageUrl}" alt="Preview" style="width: 100%; height: 100%; object-fit: cover;">`
+                  : `<div class="image-preview__placeholder" style="text-align: center; color: var(--text-muted, #64748b);">${icons.image}<br>Paste an image URL below</div>`}
+              </div>
+              <div class="form-group" style="margin-bottom: 0;">
+                <label class="form-label" for="edit-image" style="font-size: 0.85rem; font-weight: 600; color: var(--text-secondary);">Image URL</label>
+                <input type="url" class="form-input" id="edit-image" value="${product.imageUrl}" placeholder="https://example.com/image.jpg">
+              </div>
             </div>
-            <div class="form-group">
-              <label class="form-label" for="edit-size">Size</label>
-              <input type="text" class="form-input" id="edit-size" value="${product.size}" placeholder="e.g., Large, 12x8 inches">
+
+            <!-- Right Side: Details -->
+            <div style="flex: 2; min-width: 300px; display: flex; flex-direction: column; gap: 16px;">
+              <div class="form-group" style="margin-bottom: 0;">
+                <label class="form-label" for="edit-name">Product Name *</label>
+                <input type="text" class="form-input" id="edit-name" value="${product.name}" required>
+              </div>
+
+              <div class="form-row" style="margin-bottom: 0;">
+                <div class="form-group" style="margin-bottom: 0;">
+                  <label class="form-label" for="edit-price">Price (₹) *</label>
+                  <input type="number" class="form-input" id="edit-price" value="${product.price}" min="0" step="0.01" required>
+                </div>
+                <div class="form-group" style="margin-bottom: 0;">
+                  <label class="form-label" for="edit-size">Size</label>
+                  <input type="text" class="form-input" id="edit-size" value="${product.size}" placeholder="e.g., Large, 12x8 inches">
+                </div>
+              </div>
+
+              <div class="form-group" style="margin-bottom: 0;">
+                <label class="form-label" for="edit-material">Material</label>
+                <input type="text" class="form-input" id="edit-material" value="${product.material}" placeholder="e.g., Cotton, Silk, Wood">
+              </div>
+
+              <div class="form-group" style="margin-bottom: 0;">
+                <label class="form-label">Categories</label>
+                <div id="edit-categories"></div>
+              </div>
+
+              <div class="form-actions" style="justify-content: flex-start; margin-top: 4px;">
+                <button type="submit" class="btn btn-primary">Save Changes</button>
+                <button type="button" class="btn btn-secondary" id="edit-cancel">Cancel</button>
+              </div>
             </div>
-          </div>
 
-          <div class="form-group">
-            <label class="form-label" for="edit-material">Material</label>
-            <input type="text" class="form-input" id="edit-material" value="${product.material}" placeholder="e.g., Cotton, Silk, Wood">
-          </div>
-
-          <div class="form-group">
-            <label class="form-label">Categories</label>
-            <div id="edit-categories"></div>
-          </div>
-
-          <div class="form-group">
-            <label class="form-label" for="edit-image">Image URL</label>
-            <input type="url" class="form-input" id="edit-image" value="${product.imageUrl}" placeholder="https://example.com/image.jpg">
-            <div class="image-preview" id="edit-image-preview">
-              ${product.imageUrl
-                ? `<img src="${product.imageUrl}" alt="Preview">`
-                : `<div class="image-preview__placeholder">${icons.image}<br>Paste an image URL above</div>`}
-            </div>
-          </div>
-
-          <div class="form-actions">
-            <button type="button" class="btn btn-secondary" id="edit-cancel">Cancel</button>
-            <button type="submit" class="btn btn-primary">Save Changes</button>
           </div>
         </form>
       </div>
@@ -228,9 +246,9 @@ function renderEditMode(container, product) {
     const preview = document.getElementById('edit-image-preview');
     const url = e.target.value.trim();
     if (url) {
-      preview.innerHTML = `<img src="${url}" alt="Preview" onerror="this.parentElement.innerHTML='<div class=image-preview__placeholder>Invalid URL</div>'">`;
+      preview.innerHTML = `<img src="${url}" alt="Preview" style="width: 100%; height: 100%; object-fit: cover;" onerror="this.parentElement.innerHTML='<div class=image-preview__placeholder style=\\'text-align: center;\\'>Invalid URL</div>'">`;
     } else {
-      preview.innerHTML = `<div class="image-preview__placeholder">${icons.image}<br>Paste an image URL above</div>`;
+      preview.innerHTML = `<div class="image-preview__placeholder" style="text-align: center; color: var(--text-muted, #64748b);">${icons.image}<br>Paste an image URL below</div>`;
     }
   });
 

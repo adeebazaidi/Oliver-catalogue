@@ -11,30 +11,31 @@ import { renderSortBar } from '../components/sort-bar.js';
 import { createProductCard } from '../components/product-card.js';
 import { showExportModal } from '../components/export-modal.js';
 import { showBulkImportModal } from '../components/bulk-import-modal.js';
+import { showBackupMenu } from '../components/backup-menu.js';
 
 let sortBarInstance = null;
 let currentFilters = { search: '', sort: 'newest', categories: [], favoritesOnly: false };
 
 export function renderHomePage(container) {
   container.innerHTML = `
-    <div class="page">
-      <div class="container">
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:var(--space-xl);flex-wrap:wrap;gap:var(--space-md);">
-          <div>
-            <h1 style="font-size:1.75rem;">Products</h1>
-            <p style="color:var(--text-secondary);margin-top:4px;">Manage your product catalogue</p>
+    <div class="page" style="padding-top: 0;">
+      <div class="sticky-dashboard-section">
+        <div class="container">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:var(--space-md);flex-wrap:wrap;gap:var(--space-sm);">
+            <div style="display:flex;align-items:baseline;gap:var(--space-lg);">
+              <div style="font-family:var(--font-heading); font-size: 1.35rem; font-weight: 700; color:var(--text-primary); letter-spacing:-0.01em;">Oliver Mc Inroy <span style="color:var(--color-primary)">Catalogue</span></div>
+            </div>
+            <div style="display:flex;gap:var(--space-sm);align-items:center;">
+              <button class="btn btn-ghost btn-sm" id="btn-backup" style="font-size:0.85rem; padding: 4px 12px;">Settings</button>
+              <button class="btn btn-secondary btn-sm" id="btn-bulk-import" style="font-size:0.85rem; padding: 4px 12px;">Import</button>
+              <button class="btn btn-primary btn-sm" id="btn-add-product" style="font-size:0.85rem; padding: 4px 12px;">Add Product</button>
+            </div>
           </div>
-          <div style="display:flex;gap:var(--space-sm);">
-            <button class="btn btn-secondary" id="btn-bulk-import">
-              ${icons.upload} Bulk Import
-            </button>
-            <button class="btn btn-primary" id="btn-add-product">
-              ${icons.plus} Add Product
-            </button>
-          </div>
+          <div id="dashboard-stats"></div>
         </div>
+      </div>
 
-        <div id="dashboard-stats"></div>
+      <div class="container">
         <div id="sort-bar-container"></div>
         <div id="product-grid-container"></div>
       </div>
@@ -65,14 +66,50 @@ export function renderHomePage(container) {
     showBulkImportModal();
   });
 
+  document.getElementById('btn-backup').addEventListener('click', () => {
+    showBackupMenu();
+  });
+
   // Listen for data changes
   const handlers = {
     productsChanged: () => renderProductGrid(),
     selectionChanged: () => {
-      renderProductGrid();
+      const grid = document.getElementById('product-grid');
+      if (grid) {
+        const cards = grid.querySelectorAll('.product-card');
+        cards.forEach(card => {
+          const productId = card.dataset.productId;
+          const isSelected = store.isSelected(productId);
+          card.classList.toggle('selected', isSelected);
+          const checkbox = card.querySelector('[data-action="toggle-select"]');
+          if (checkbox) checkbox.classList.toggle('checked', isSelected);
+        });
+      } else {
+        renderProductGrid();
+      }
       renderSelectionToolbar();
     },
-    favoriteToggled: () => renderProductGrid(),
+    favoriteToggled: () => {
+      if (currentFilters.favoritesOnly || currentFilters.sort === 'favorites') {
+        renderProductGrid();
+      } else {
+        const grid = document.getElementById('product-grid');
+        if (grid) {
+          const cards = grid.querySelectorAll('.product-card');
+          cards.forEach(card => {
+            const productId = card.dataset.productId;
+            const product = store.getProductById(productId);
+            if (product) {
+              const starBtn = card.querySelector('[data-action="toggle-favorite"]');
+              if (starBtn) {
+                starBtn.classList.toggle('active', product.favorite);
+                starBtn.title = product.favorite ? 'Remove from favorites' : 'Add to favorites';
+              }
+            }
+          });
+        }
+      }
+    },
     dataImported: () => {
       renderDashboardStats('dashboard-stats');
       if (sortBarInstance) sortBarInstance.render();

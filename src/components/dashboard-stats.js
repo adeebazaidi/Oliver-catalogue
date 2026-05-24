@@ -29,36 +29,31 @@ export function renderDashboardStats(containerId) {
 
     container.innerHTML = `
       <div class="stats-bar stagger-children">
-        <div class="stat-card">
-          <div class="stat-card__icon stat-card__icon--wine">${icons.package}</div>
+        <div class="stat-card" style="justify-content:center; text-align:center;">
           <div>
             <div class="stat-card__value">${stats.total}</div>
             <div class="stat-card__label">Total Products</div>
           </div>
         </div>
-        <div class="stat-card">
-          <div class="stat-card__icon stat-card__icon--gold">${icons.tag}</div>
+        <div class="stat-card" style="justify-content:center; text-align:center;">
           <div>
             <div class="stat-card__value">${stats.categoriesCount}</div>
             <div class="stat-card__label">Categories</div>
           </div>
         </div>
-        <div class="stat-card">
-          <div class="stat-card__icon stat-card__icon--warning">${icons.star}</div>
+        <div class="stat-card" style="justify-content:center; text-align:center;">
           <div>
             <div class="stat-card__value">${stats.favorites}</div>
             <div class="stat-card__label">Favorites</div>
           </div>
         </div>
-        <div class="stat-card">
-          <div class="stat-card__icon stat-card__icon--success">${icons.dollarSign}</div>
+        <div class="stat-card" style="justify-content:center; text-align:center;">
           <div>
             <div class="stat-card__value">₹${stats.avgPrice.toLocaleString('en-IN')}</div>
             <div class="stat-card__label">Avg. Price</div>
           </div>
         </div>
-        <div class="stat-card">
-          <div class="stat-card__icon stat-card__icon--wine">${icons.clock}</div>
+        <div class="stat-card" style="justify-content:center; text-align:center;">
           <div>
             <div class="stat-card__value">${formatDate(stats.lastUpdated)}</div>
             <div class="stat-card__label">Last Updated</div>
