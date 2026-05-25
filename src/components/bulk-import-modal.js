@@ -193,7 +193,7 @@ function renderPreviewStep() {
                     <td>${i + 1}</td>
                     <td>${p.name || '<em style="color:var(--color-danger)">Missing</em>'}</td>
                     <td>${p.size}</td>
-                    <td>₹${parseFloat(p.price || 0).toLocaleString('en-IN')}</td>
+                    <td>$${parseFloat(p.price || 0).toLocaleString('en-US')}</td>
                     <td>${p.material}</td>
                     <td>${p.categories.join(', ')}</td>
                   </tr>

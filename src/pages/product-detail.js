@@ -90,7 +90,7 @@ function renderViewMode(container, product) {
                 <div class="product-detail__field">
                   <div class="product-detail__field-label">Price</div>
                   <div class="product-detail__field-value" style="color:var(--color-primary);font-size:1.35rem;font-family:var(--font-heading);">
-                    ₹${product.price.toLocaleString('en-IN')}
+                    $${product.price.toLocaleString('en-US')}
                   </div>
                 </div>
                 <div class="product-detail__field">
@@ -98,14 +98,26 @@ function renderViewMode(container, product) {
                   <div class="product-detail__field-value">${product.size || '—'}</div>
                 </div>
                 <div class="product-detail__field">
-                  <div class="product-detail__field-label">Material</div>
-                  <div class="product-detail__field-value">${product.material || '—'}</div>
+                  <div class="product-detail__field-label">Materials</div>
+                  <div class="product-detail__field-value">
+                    ${product.materials && product.materials.length > 0
+                      ? product.materials.map(m => `<span class="badge badge-gold" style="margin-right:4px;margin-bottom:4px;">${m}</span>`).join('')
+                      : (product.material ? `<span class="badge badge-gold" style="margin-right:4px;margin-bottom:4px;">${product.material}</span>` : '—')}
+                  </div>
                 </div>
                 <div class="product-detail__field">
-                  <div class="product-detail__field-label">Categories</div>
+                  <div class="product-detail__field-label">Product Categories</div>
                   <div class="product-detail__field-value">
-                    ${product.categories.length > 0
+                    ${product.categories && product.categories.length > 0
                       ? product.categories.map(c => `<span class="badge badge-gold" style="margin-right:4px;margin-bottom:4px;">${c}</span>`).join('')
+                      : '—'}
+                  </div>
+                </div>
+                <div class="product-detail__field">
+                  <div class="product-detail__field-label">Buyer Categories</div>
+                  <div class="product-detail__field-value">
+                    ${product.buyerCategories && product.buyerCategories.length > 0
+                      ? product.buyerCategories.map(c => `<span class="badge badge-wine" style="margin-right:4px;margin-bottom:4px;">${c}</span>`).join('')
                       : '—'}
                   </div>
                 </div>
@@ -124,9 +136,9 @@ function renderViewMode(container, product) {
             ` : ''}
 
             <div style="margin-top:var(--space-sm);display:flex;gap:var(--space-sm);font-size:0.8rem;color:var(--text-muted);">
-              <span>Created: ${new Date(product.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}</span>
+              <span>Created: ${new Date(product.createdAt).toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' })}</span>
               <span>·</span>
-              <span>Updated: ${new Date(product.updatedAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}</span>
+              <span>Updated: ${new Date(product.updatedAt).toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' })}</span>
             </div>
           </div>
         </div>
@@ -165,6 +177,8 @@ function renderViewMode(container, product) {
 
 function renderEditMode(container, product) {
   let editCategories = [...product.categories];
+  let editMaterials = product.materials ? [...product.materials] : (product.material ? [product.material] : []);
+  let editBuyers = product.buyerCategories ? [...product.buyerCategories] : [];
 
   container.innerHTML = `
     <div class="page">
@@ -205,7 +219,7 @@ function renderEditMode(container, product) {
 
               <div class="form-row" style="margin-bottom: 0;">
                 <div class="form-group" style="margin-bottom: 0;">
-                  <label class="form-label" for="edit-price">Price (₹) *</label>
+                  <label class="form-label" for="edit-price">Price ($) *</label>
                   <input type="number" class="form-input" id="edit-price" value="${product.price}" min="0" step="0.01" required>
                 </div>
                 <div class="form-group" style="margin-bottom: 0;">
@@ -215,13 +229,18 @@ function renderEditMode(container, product) {
               </div>
 
               <div class="form-group" style="margin-bottom: 0;">
-                <label class="form-label" for="edit-material">Material</label>
-                <input type="text" class="form-input" id="edit-material" value="${product.material}" placeholder="e.g., Cotton, Silk, Wood">
+                <label class="form-label">Materials</label>
+                <div id="edit-materials"></div>
               </div>
 
               <div class="form-group" style="margin-bottom: 0;">
-                <label class="form-label">Categories</label>
+                <label class="form-label">Product Categories</label>
                 <div id="edit-categories"></div>
+              </div>
+
+              <div class="form-group" style="margin-bottom: 0;">
+                <label class="form-label">Buyer Categories</label>
+                <div id="edit-buyers"></div>
               </div>
 
               <div class="form-actions" style="justify-content: flex-start; margin-top: 4px;">
@@ -236,10 +255,18 @@ function renderEditMode(container, product) {
     </div>
   `;
 
-  // Category selector
+  // Category selectors
+  renderCategorySelector('edit-materials', editMaterials, (mats) => {
+    editMaterials = mats;
+  }, 'materials');
+
   renderCategorySelector('edit-categories', editCategories, (cats) => {
     editCategories = cats;
-  });
+  }, 'categories');
+
+  renderCategorySelector('edit-buyers', editBuyers, (buyers) => {
+    editBuyers = buyers;
+  }, 'buyers');
 
   // Image preview
   document.getElementById('edit-image').addEventListener('input', (e) => {
@@ -264,8 +291,9 @@ function renderEditMode(container, product) {
       name: document.getElementById('edit-name').value,
       price: document.getElementById('edit-price').value,
       size: document.getElementById('edit-size').value,
-      material: document.getElementById('edit-material').value,
+      materials: editMaterials,
       categories: editCategories,
+      buyerCategories: editBuyers,
       imageUrl: document.getElementById('edit-image').value,
     });
 

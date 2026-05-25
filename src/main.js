@@ -33,4 +33,12 @@ function initApp() {
 
   // Initialize router
   router.init(main);
+
+  // Clear selection toolbar on non-home pages
+  router.onRoute((route) => {
+    if (route.path !== '/') {
+      const toolbar = document.getElementById('selection-toolbar-container');
+      if (toolbar) toolbar.innerHTML = '';
+    }
+  });
 }

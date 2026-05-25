@@ -61,7 +61,7 @@ export async function generatePDF(products, coverInfo) {
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(11);
   doc.setTextColor(...textMuted);
-  doc.text(`Date: ${coverInfo.date || new Date().toLocaleDateString('en-IN')}`, pageWidth / 2, metaY, { align: 'center' });
+  doc.text(`Date: ${coverInfo.date || new Date().toLocaleDateString('en-US')}`, pageWidth / 2, metaY, { align: 'center' });
   metaY += 8;
   doc.text(`${products.length} Products`, pageWidth / 2, metaY, { align: 'center' });
 
@@ -124,17 +124,22 @@ export async function generatePDF(products, coverInfo) {
     // Product details table
     const tableData = [];
 
-    if (product.price) {
-      tableData.push(['Price', `₹${product.price.toLocaleString('en-IN')}`]);
+    if (product.price !== undefined && product.price !== null) {
+      tableData.push(['Price', `$${product.price.toLocaleString('en-US')}`]);
     }
     if (product.size) {
       tableData.push(['Size', product.size]);
     }
-    if (product.material) {
-      tableData.push(['Material', product.material]);
+    if (product.materials && product.materials.length > 0) {
+      tableData.push(['Materials', product.materials.join(', ')]);
+    } else if (product.material) {
+      tableData.push(['Materials', product.material]);
     }
     if (product.categories && product.categories.length > 0) {
-      tableData.push(['Categories', product.categories.join(', ')]);
+      tableData.push(['Product Categories', product.categories.join(', ')]);
+    }
+    if (product.buyerCategories && product.buyerCategories.length > 0) {
+      tableData.push(['Buyer Categories', product.buyerCategories.join(', ')]);
     }
 
     doc.autoTable({

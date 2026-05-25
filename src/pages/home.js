@@ -14,16 +14,16 @@ import { showBulkImportModal } from '../components/bulk-import-modal.js';
 import { showBackupMenu } from '../components/backup-menu.js';
 
 let sortBarInstance = null;
-let currentFilters = { search: '', sort: 'newest', categories: [], favoritesOnly: false };
+let currentFilters = { search: '', sort: 'newest', material: '', category: '', buyer: '', favoritesOnly: false };
 
 export function renderHomePage(container) {
   container.innerHTML = `
     <div class="page" style="padding-top: 0;">
       <div class="sticky-dashboard-section">
         <div class="container">
-          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:var(--space-md);flex-wrap:wrap;gap:var(--space-sm);">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex-wrap:wrap;gap:var(--space-sm);">
             <div style="display:flex;align-items:baseline;gap:var(--space-lg);">
-              <div style="font-family:var(--font-heading); font-size: 1.35rem; font-weight: 700; color:var(--text-primary); letter-spacing:-0.01em;">Oliver Mc Inroy <span style="color:var(--color-primary)">Catalogue</span></div>
+              <div style="font-family:var(--font-heading); font-size: 1.65rem; font-weight: 700; color:#FFFFFF; letter-spacing:-0.01em;">Oliver Mc Inroy <span style="color:rgba(255, 255, 255, 0.75)">Catalogue</span></div>
             </div>
             <div style="display:flex;gap:var(--space-sm);align-items:center;">
               <button class="btn btn-ghost btn-sm" id="btn-backup" style="font-size:0.85rem; padding: 4px 12px;">Settings</button>
@@ -40,7 +40,6 @@ export function renderHomePage(container) {
         <div id="product-grid-container"></div>
       </div>
     </div>
-    <div id="selection-toolbar-container"></div>
   `;
 
   // Dashboard stats
@@ -180,7 +179,7 @@ function renderSelectionToolbar() {
         <button class="btn btn-ghost btn-sm" id="btn-clear-selection">Clear</button>
       </div>
       <div class="selection-toolbar__actions">
-        <button class="btn btn-primary btn-lg" id="btn-generate-catalogue">
+        <button class="btn btn-primary" id="btn-generate-catalogue">
           ${icons.fileText} Generate Catalogue
         </button>
       </div>

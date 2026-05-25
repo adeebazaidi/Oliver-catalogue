@@ -24,40 +24,30 @@ export function renderDashboardStats(containerId) {
       if (diffHrs < 24) return `${diffHrs}h ago`;
       const diffDays = Math.floor(diffHrs / 24);
       if (diffDays < 7) return `${diffDays}d ago`;
-      return d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
+      return d.toLocaleDateString('en-US', { day: 'numeric', month: 'short' });
     };
 
     container.innerHTML = `
       <div class="stats-bar stagger-children">
-        <div class="stat-card" style="justify-content:center; text-align:center;">
-          <div>
-            <div class="stat-card__value">${stats.total}</div>
-            <div class="stat-card__label">Total Products</div>
-          </div>
+        <div class="stat-card" style="justify-content:center; align-items:baseline; gap:var(--space-xs);">
+          <span class="stat-card__value">${stats.total}</span>
+          <span class="stat-card__label">Total Products</span>
         </div>
-        <div class="stat-card" style="justify-content:center; text-align:center;">
-          <div>
-            <div class="stat-card__value">${stats.categoriesCount}</div>
-            <div class="stat-card__label">Categories</div>
-          </div>
+        <div class="stat-card" style="justify-content:center; align-items:baseline; gap:var(--space-xs);">
+          <span class="stat-card__value">${stats.categoriesCount}</span>
+          <span class="stat-card__label">Categories</span>
         </div>
-        <div class="stat-card" style="justify-content:center; text-align:center;">
-          <div>
-            <div class="stat-card__value">${stats.favorites}</div>
-            <div class="stat-card__label">Favorites</div>
-          </div>
+        <div class="stat-card" style="justify-content:center; align-items:baseline; gap:var(--space-xs);">
+          <span class="stat-card__value">${stats.favorites}</span>
+          <span class="stat-card__label">Favorites</span>
         </div>
-        <div class="stat-card" style="justify-content:center; text-align:center;">
-          <div>
-            <div class="stat-card__value">₹${stats.avgPrice.toLocaleString('en-IN')}</div>
-            <div class="stat-card__label">Avg. Price</div>
-          </div>
+        <div class="stat-card" style="justify-content:center; align-items:baseline; gap:var(--space-xs);">
+          <span class="stat-card__value">$${stats.avgPrice.toLocaleString('en-US')}</span>
+          <span class="stat-card__label">Avg. Price</span>
         </div>
-        <div class="stat-card" style="justify-content:center; text-align:center;">
-          <div>
-            <div class="stat-card__value">${formatDate(stats.lastUpdated)}</div>
-            <div class="stat-card__label">Last Updated</div>
-          </div>
+        <div class="stat-card" style="justify-content:center; align-items:baseline; gap:var(--space-xs);">
+          <span class="stat-card__value">${formatDate(stats.lastUpdated)}</span>
+          <span class="stat-card__label">Last Updated</span>
         </div>
       </div>
     `;

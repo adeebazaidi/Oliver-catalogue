@@ -12,7 +12,9 @@ export function renderSortBar(containerId, { onFilterChange } = {}) {
   let state = {
     search: '',
     sort: 'newest',
-    categories: [],
+    material: '',
+    category: '',
+    buyer: '',
     favoritesOnly: false,
   };
 
@@ -22,19 +24,26 @@ export function renderSortBar(containerId, { onFilterChange } = {}) {
 
   function render() {
     const allCategories = store.getCategories();
+    const allMaterials = store.getMaterials();
+    const allBuyerCategories = store.getBuyerCategories();
 
     container.innerHTML = `
       <div class="sort-bar">
-        <div class="search-input-wrapper">
-          ${icons.search}
-          <input 
-            type="text" 
-            class="search-input" 
-            id="sort-search" 
-            placeholder="Search products..."
-            value="${state.search}"
-          >
-        </div>
+        <select class="sort-select" id="filter-material" title="Filter by Material">
+          <option value="">All Materials</option>
+          ${allMaterials.map(m => `<option value="${m}" ${state.material === m ? 'selected' : ''}>${m}</option>`).join('')}
+        </select>
+        
+        <select class="sort-select" id="filter-product" title="Filter by Product Category">
+          <option value="">All Products</option>
+          ${allCategories.map(c => `<option value="${c}" ${state.category === c ? 'selected' : ''}>${c}</option>`).join('')}
+        </select>
+        
+        <select class="sort-select" id="filter-buyer" title="Filter by Buyer Category">
+          <option value="">All Buyers</option>
+          ${allBuyerCategories.map(b => `<option value="${b}" ${state.buyer === b ? 'selected' : ''}>${b}</option>`).join('')}
+        </select>
+
         <select class="sort-select" id="sort-select">
           <option value="newest" ${state.sort === 'newest' ? 'selected' : ''}>Newest First</option>
           <option value="oldest" ${state.sort === 'oldest' ? 'selected' : ''}>Oldest First</option>
@@ -45,20 +54,22 @@ export function renderSortBar(containerId, { onFilterChange } = {}) {
           <option value="material" ${state.sort === 'material' ? 'selected' : ''}>Material</option>
           <option value="favorites" ${state.sort === 'favorites' ? 'selected' : ''}>Favorites First</option>
         </select>
+
         <button class="btn ${state.favoritesOnly ? 'btn-primary' : 'btn-secondary'} btn-sm" id="sort-fav-toggle" title="Show favorites only">
           ${icons.star} Favorites
         </button>
-      </div>
-      ${allCategories.length > 0 ? `
-        <div class="category-chips" style="margin-bottom:var(--space-lg);">
-          ${allCategories.map(cat => `
-            <button class="category-chip ${state.categories.includes(cat) ? 'active' : ''}" data-filter-cat="${cat}">${cat}</button>
-          `).join('')}
-          ${state.categories.length > 0 ? `
-            <button class="category-chip" style="color:var(--color-danger);border-color:var(--color-danger-subtle);" id="clear-cat-filter">✕ Clear</button>
-          ` : ''}
+
+        <div class="search-input-wrapper" style="margin-left: auto;">
+          ${icons.search}
+          <input 
+            type="text" 
+            class="search-input" 
+            id="sort-search" 
+            placeholder="Search products..."
+            value="${state.search}"
+          >
         </div>
-      ` : ''}
+      </div>
     `;
 
     // Search
@@ -70,6 +81,24 @@ export function renderSortBar(containerId, { onFilterChange } = {}) {
         state.search = searchInput.value;
         emitChange();
       }, 200);
+    });
+
+    // Material filter
+    document.getElementById('filter-material').addEventListener('change', (e) => {
+      state.material = e.target.value;
+      emitChange();
+    });
+
+    // Product filter
+    document.getElementById('filter-product').addEventListener('change', (e) => {
+      state.category = e.target.value;
+      emitChange();
+    });
+
+    // Buyer filter
+    document.getElementById('filter-buyer').addEventListener('change', (e) => {
+      state.buyer = e.target.value;
+      emitChange();
     });
 
     // Sort
@@ -84,35 +113,12 @@ export function renderSortBar(containerId, { onFilterChange } = {}) {
       render();
       emitChange();
     });
-
-    // Category filter chips
-    container.querySelectorAll('[data-filter-cat]').forEach(chip => {
-      chip.addEventListener('click', () => {
-        const cat = chip.dataset.filterCat;
-        const idx = state.categories.indexOf(cat);
-        if (idx > -1) {
-          state.categories.splice(idx, 1);
-        } else {
-          state.categories.push(cat);
-        }
-        render();
-        emitChange();
-      });
-    });
-
-    // Clear category filter
-    const clearBtn = document.getElementById('clear-cat-filter');
-    if (clearBtn) {
-      clearBtn.addEventListener('click', () => {
-        state.categories = [];
-        render();
-        emitChange();
-      });
-    }
   }
 
   render();
   store.on('categories-changed', render);
+  store.on('materials-changed', render);
+  store.on('buyer-categories-changed', render);
 
   return {
     getState: () => ({ ...state }),

@@ -35,7 +35,7 @@ export function createProductCard(product) {
       <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: var(--space-sm);">
         <div style="flex: 1; min-width: 0;">
           <div class="product-card__name" title="${product.name}">${product.name}</div>
-          <div class="product-card__price">₹${product.price.toLocaleString('en-IN')}</div>
+          <div class="product-card__price">$${product.price.toLocaleString('en-US')}</div>
         </div>
         <button class="btn btn-ghost btn-sm" data-action="edit-product" title="Edit Product" style="padding: 6px; border: 1px solid var(--border); color: var(--text-secondary); background: var(--bg-surface);">
           ${icons.edit}

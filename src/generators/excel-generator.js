@@ -67,7 +67,7 @@ export async function generateExcel(products, coverInfo) {
 
   // Date
   const dateCell = coverSheet.getCell('A5');
-  dateCell.value = `Date: ${coverInfo.date || new Date().toLocaleDateString('en-IN')}`;
+  dateCell.value = `Date: ${coverInfo.date || new Date().toLocaleDateString('en-US')}`;
   dateCell.font = { name: fontBody, size: 11, color: { argb: textBody } };
   dateCell.alignment = { horizontal: 'center' };
 
@@ -99,7 +99,7 @@ export async function generateExcel(products, coverInfo) {
     { header: 'Image', key: 'image', width: 15 },
     { header: 'Product Name', key: 'name', width: 32 },
     { header: 'Size', key: 'size', width: 18 },
-    { header: 'Price (₹)', key: 'price', width: 16 },
+    { header: 'Price ($)', key: 'price', width: 16 },
     { header: 'Material', key: 'material', width: 20 },
     { header: 'Categories', key: 'categories', width: 28 },
   ];

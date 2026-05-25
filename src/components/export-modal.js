@@ -86,7 +86,7 @@ function renderStepContent() {
             <span class="drag-item__handle">${icons.gripVertical}</span>
             <span class="drag-item__index">${i + 1}</span>
             <span class="drag-item__name">${p.name}</span>
-            <span class="badge">₹${p.price.toLocaleString('en-IN')}</span>
+            <span class="badge">$${p.price.toLocaleString('en-US')}</span>
           </div>
         `).join('')}
       </div>

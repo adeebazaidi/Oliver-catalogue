@@ -10,6 +10,8 @@ import { renderCategorySelector } from '../components/category-selector.js';
 
 export function renderAddProductPage(container) {
   let selectedCategories = [];
+  let selectedMaterials = [];
+  let selectedBuyers = [];
 
   container.innerHTML = `
     <div class="page">
@@ -49,7 +51,7 @@ export function renderAddProductPage(container) {
 
               <div class="form-row" style="margin-bottom: 0;">
                 <div class="form-group" style="margin-bottom: 0;">
-                  <label class="form-label" for="add-price">Price (₹) *</label>
+                  <label class="form-label" for="add-price">Price ($) *</label>
                   <input type="number" class="form-input" id="add-price" placeholder="0.00" min="0" step="0.01" required>
                 </div>
                 <div class="form-group" style="margin-bottom: 0;">
@@ -59,13 +61,18 @@ export function renderAddProductPage(container) {
               </div>
 
               <div class="form-group" style="margin-bottom: 0;">
-                <label class="form-label" for="add-material">Material</label>
-                <input type="text" class="form-input" id="add-material" placeholder="e.g., Cotton, Silk, Wood">
+                <label class="form-label">Materials</label>
+                <div id="add-materials"></div>
               </div>
 
               <div class="form-group" style="margin-bottom: 0;">
-                <label class="form-label">Categories</label>
+                <label class="form-label">Product Categories</label>
                 <div id="add-categories"></div>
+              </div>
+
+              <div class="form-group" style="margin-bottom: 0;">
+                <label class="form-label">Buyer Categories</label>
+                <div id="add-buyers"></div>
               </div>
 
               <div class="form-actions" style="justify-content: flex-start; margin-top: 4px;">
@@ -82,10 +89,18 @@ export function renderAddProductPage(container) {
     </div>
   `;
 
-  // Category selector
+  // Category selectors
+  renderCategorySelector('add-materials', selectedMaterials, (mats) => {
+    selectedMaterials = mats;
+  }, 'materials');
+
   renderCategorySelector('add-categories', selectedCategories, (cats) => {
     selectedCategories = cats;
-  });
+  }, 'categories');
+
+  renderCategorySelector('add-buyers', selectedBuyers, (buyers) => {
+    selectedBuyers = buyers;
+  }, 'buyers');
 
   // Image preview
   document.getElementById('add-image').addEventListener('input', (e) => {
@@ -117,8 +132,9 @@ export function renderAddProductPage(container) {
       name,
       price: document.getElementById('add-price').value,
       size: document.getElementById('add-size').value,
-      material: document.getElementById('add-material').value,
+      materials: selectedMaterials,
       categories: selectedCategories,
+      buyerCategories: selectedBuyers,
       imageUrl: document.getElementById('add-image').value,
     });
 

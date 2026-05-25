@@ -6,16 +6,29 @@
 import { store } from '../store.js';
 import { icons } from '../icons.js';
 
-export function renderCategorySelector(containerId, selectedCategories = [], onChange) {
+export function renderCategorySelector(containerId, selectedCategories = [], onChange, type = 'categories') {
   const container = document.getElementById(containerId);
   if (!container) return;
 
   function render() {
-    const allCategories = store.getCategories();
+    let allItems = [];
+    let placeholder = '';
+
+    if (type === 'materials') {
+      allItems = store.getMaterials();
+      placeholder = 'Add new material...';
+    } else if (type === 'buyers') {
+      allItems = store.getBuyerCategories();
+      placeholder = 'Add new buyer category...';
+    } else {
+      allItems = store.getCategories();
+      placeholder = 'Add new category...';
+    }
+
     container.innerHTML = `
       <div class="category-selector">
-        <div class="category-chips" id="${containerId}-chips">
-          ${allCategories.map(cat => `
+        <div class="category-chips" id="${containerId}-chips" style="margin-bottom: 0;">
+          ${allItems.map(cat => `
             <button 
               type="button" 
               class="category-chip ${selectedCategories.includes(cat) ? 'active' : ''}" 
@@ -28,7 +41,7 @@ export function renderCategorySelector(containerId, selectedCategories = [], onC
             type="text" 
             class="form-input" 
             id="${containerId}-new-input" 
-            placeholder="Add new category..."
+            placeholder="${placeholder}"
             style="flex:1;padding:8px 12px;font-size:0.85rem;"
           >
           <button type="button" class="btn btn-secondary btn-sm" id="${containerId}-add-btn">
@@ -61,7 +74,15 @@ export function renderCategorySelector(containerId, selectedCategories = [], onC
     const doAdd = () => {
       const val = addInput.value.trim();
       if (!val) return;
-      store.addCategory(val);
+
+      if (type === 'materials') {
+        store.addMaterial(val);
+      } else if (type === 'buyers') {
+        store.addBuyerCategory(val);
+      } else {
+        store.addCategory(val);
+      }
+
       if (!selectedCategories.includes(val)) {
         selectedCategories.push(val);
       }
