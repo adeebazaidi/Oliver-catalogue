@@ -101,7 +101,7 @@ export async function generateExcel(products, coverInfo) {
     { header: 'Size', key: 'size', width: 18 },
     { header: 'Price ($)', key: 'price', width: 16 },
     { header: 'Material', key: 'material', width: 20 },
-    { header: 'Categories', key: 'categories', width: 28 },
+    { header: 'Category', key: 'category', width: 20 },
   ];
 
   // Style header row
@@ -126,7 +126,7 @@ export async function generateExcel(products, coverInfo) {
       size: product.size || '',
       price: product.price,
       material: product.material || '',
-      categories: product.categories.join(', '),
+      category: product.category || '',
     });
 
     row.height = 65; // Make row taller for image

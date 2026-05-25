@@ -130,13 +130,13 @@ export async function generatePDF(products, coverInfo) {
     if (product.size) {
       tableData.push(['Size', product.size]);
     }
+    if (product.category) {
+      tableData.push(['Category', product.category]);
+    }
     if (product.materials && product.materials.length > 0) {
       tableData.push(['Materials', product.materials.join(', ')]);
     } else if (product.material) {
       tableData.push(['Materials', product.material]);
-    }
-    if (product.categories && product.categories.length > 0) {
-      tableData.push(['Product Categories', product.categories.join(', ')]);
     }
     if (product.buyerCategories && product.buyerCategories.length > 0) {
       tableData.push(['Buyer Categories', product.buyerCategories.join(', ')]);

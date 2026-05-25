@@ -152,8 +152,8 @@ export async function generatePPT(products, coverInfo) {
     const specs = [
       ['Price', `$${product.price.toLocaleString('en-US')}`],
       ['Size', product.size || '—'],
+      ['Category', product.category || '—'],
       ['Materials', product.materials && product.materials.length > 0 ? product.materials.join(', ') : product.material || '—'],
-      ['Product Categories', product.categories.length > 0 ? product.categories.join(', ') : '—'],
       ['Buyer Categories', product.buyerCategories && product.buyerCategories.length > 0 ? product.buyerCategories.join(', ') : '—'],
     ];
 

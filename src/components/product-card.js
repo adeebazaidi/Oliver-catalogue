@@ -43,8 +43,7 @@ export function createProductCard(product) {
       </div>
       <div class="product-card__meta" style="margin-top: var(--space-sm);">
         ${product.material ? `<span class="badge">${product.material}</span>` : ''}
-        ${product.categories.slice(0, 2).map(c => `<span class="badge badge-gold">${c}</span>`).join('')}
-        ${product.categories.length > 2 ? `<span class="badge">+${product.categories.length - 2}</span>` : ''}
+        ${product.category ? `<span class="badge badge-gold">${product.category}</span>` : ''}
       </div>
     </div>
   `;
@@ -66,7 +65,6 @@ export function createProductCard(product) {
   starBtn.addEventListener('click', (e) => {
     e.stopPropagation();
     store.toggleFavorite(product.id);
-    starBtn.classList.toggle('active');
     starBtn.classList.add('animate-star-pop');
     setTimeout(() => starBtn.classList.remove('animate-star-pop'), 300);
   });

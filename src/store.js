@@ -39,7 +39,7 @@ class Store extends EventEmitter {
     
     // Set defaults if empty
     if (this._categories.length === 0) {
-      this._categories = ['Tables', 'Lightings', 'Wall art'].sort((a, b) => a.localeCompare(b));
+      this._categories = ['Lighting', 'Tables', 'Wall Arts'].sort((a, b) => a.localeCompare(b));
       this._saveLocalCategories();
     }
     if (this._materials.length === 0) {
@@ -69,9 +69,11 @@ class Store extends EventEmitter {
     }
   }
 
-  _saveLocalProducts() {
+  _saveLocalProducts(suppressEvent = false) {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(this._products));
-    this.emit('products-changed', this._products);
+    if (!suppressEvent) {
+      this.emit('products-changed', this._products);
+    }
   }
 
   _saveLocalCategories() {
@@ -96,8 +98,8 @@ class Store extends EventEmitter {
     localStorage.setItem('cataloguegen_buyer_categories', JSON.stringify(this._buyerCategories));
   }
 
-  async _saveProducts(product, action) {
-    this._saveLocalProducts();
+  async _saveProducts(product, action, suppressEvent = false) {
+    this._saveLocalProducts(suppressEvent);
 
     if (!isSupabaseConfigured() || !supabase) return;
 
@@ -109,7 +111,7 @@ class Store extends EventEmitter {
           size: product.size,
           price: product.price,
           materials: product.materials,
-          categories: product.categories,
+          category: product.category,
           buyer_categories: product.buyerCategories,
           image_url: product.imageUrl,
           favorite: product.favorite,
@@ -125,7 +127,7 @@ class Store extends EventEmitter {
             size: product.size,
             price: product.price,
             materials: product.materials,
-            categories: product.categories,
+            category: product.category,
             buyer_categories: product.buyerCategories,
             image_url: product.imageUrl,
             favorite: product.favorite,
@@ -225,7 +227,7 @@ class Store extends EventEmitter {
           price: parseFloat(p.price) || 0,
           materials: p.materials || [],
           material: p.materials?.[0] || '',
-          categories: p.categories || [],
+          category: p.category || '',
           buyerCategories: p.buyer_categories || [],
           imageUrl: p.image_url || '',
           favorite: p.favorite || false,
@@ -318,7 +320,7 @@ class Store extends EventEmitter {
         size: product.size,
         price: product.price,
         materials: product.materials,
-        categories: product.categories,
+        category: product.category,
         buyer_categories: product.buyerCategories,
         image_url: product.imageUrl,
         favorite: product.favorite,
@@ -373,7 +375,7 @@ class Store extends EventEmitter {
       size: data.size?.trim() || '',
       price: parseFloat(data.price) || 0,
       materials: Array.isArray(data.materials) ? data.materials : (data.material ? [data.material.trim()] : []),
-      categories: Array.isArray(data.categories) ? data.categories : [],
+      category: data.category?.trim() || '',
       buyerCategories: Array.isArray(data.buyerCategories) ? data.buyerCategories : [],
       imageUrl: data.imageUrl?.trim() || '',
       favorite: false,
@@ -382,9 +384,9 @@ class Store extends EventEmitter {
     };
     product.material = product.materials[0] || '';
 
-    // Auto-add any new categories/materials/buyers
+    // Auto-add any new materials/buyers/categories
     product.materials.forEach(m => this._ensureMaterial(m));
-    product.categories.forEach(cat => this._ensureCategory(cat));
+    if (product.category) this._ensureCategory(product.category);
     product.buyerCategories.forEach(bc => this._ensureBuyerCategory(bc));
 
     this._products.unshift(product);
@@ -408,7 +410,7 @@ class Store extends EventEmitter {
       size: data.size !== undefined ? data.size.trim() : existing.size,
       price: data.price !== undefined ? parseFloat(data.price) || 0 : existing.price,
       materials: data.materials !== undefined ? data.materials : existing.materials || (existing.material ? [existing.material] : []),
-      categories: data.categories !== undefined ? data.categories : existing.categories,
+      category: data.category !== undefined ? data.category.trim() : existing.category || '',
       buyerCategories: data.buyerCategories !== undefined ? data.buyerCategories : existing.buyerCategories || [],
       imageUrl: data.imageUrl !== undefined ? data.imageUrl.trim() : existing.imageUrl,
       updatedAt: new Date().toISOString(),
@@ -416,7 +418,7 @@ class Store extends EventEmitter {
     updated.material = updated.materials[0] || '';
 
     if (updated.materials) updated.materials.forEach(m => this._ensureMaterial(m));
-    if (updated.categories) updated.categories.forEach(cat => this._ensureCategory(cat));
+    if (updated.category) this._ensureCategory(updated.category);
     if (updated.buyerCategories) updated.buyerCategories.forEach(bc => this._ensureBuyerCategory(bc));
 
     this._products[idx] = updated;
@@ -443,7 +445,7 @@ class Store extends EventEmitter {
     if (!product) return null;
     product.favorite = !product.favorite;
     product.updatedAt = new Date().toISOString();
-    this._saveProducts(product, 'update');
+    this._saveProducts(product, 'update', true);
     this.emit('favorite-toggled', product);
     return product;
   }
@@ -586,7 +588,7 @@ class Store extends EventEmitter {
         p.name.toLowerCase().includes(q) ||
         (p.materials && p.materials.some(m => m.toLowerCase().includes(q))) ||
         p.material.toLowerCase().includes(q) ||
-        p.categories.some(c => c.toLowerCase().includes(q)) ||
+        (p.category && p.category.toLowerCase().includes(q)) ||
         (p.buyerCategories && p.buyerCategories.some(bc => bc.toLowerCase().includes(q)))
       );
     }
@@ -602,7 +604,7 @@ class Store extends EventEmitter {
     // Filter by category
     if (category) {
       results = results.filter(p =>
-        p.categories.some(c => c.toLowerCase() === category.toLowerCase())
+        p.category && p.category.toLowerCase() === category.toLowerCase()
       );
     }
 

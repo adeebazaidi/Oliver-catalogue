@@ -9,7 +9,7 @@ import { showToast } from '../components/toast.js';
 import { renderCategorySelector } from '../components/category-selector.js';
 
 export function renderAddProductPage(container) {
-  let selectedCategories = [];
+  let selectedCategory = '';
   let selectedMaterials = [];
   let selectedBuyers = [];
 
@@ -66,8 +66,8 @@ export function renderAddProductPage(container) {
               </div>
 
               <div class="form-group" style="margin-bottom: 0;">
-                <label class="form-label">Product Categories</label>
-                <div id="add-categories"></div>
+                <label class="form-label">Category</label>
+                <div id="add-category"></div>
               </div>
 
               <div class="form-group" style="margin-bottom: 0;">
@@ -89,14 +89,15 @@ export function renderAddProductPage(container) {
     </div>
   `;
 
-  // Category selectors
   renderCategorySelector('add-materials', selectedMaterials, (mats) => {
     selectedMaterials = mats;
   }, 'materials');
 
-  renderCategorySelector('add-categories', selectedCategories, (cats) => {
-    selectedCategories = cats;
-  }, 'categories');
+  renderCategorySelector('add-category', selectedCategory, (cat) => {
+    selectedCategory = cat;
+  }, 'categories', true);
+
+
 
   renderCategorySelector('add-buyers', selectedBuyers, (buyers) => {
     selectedBuyers = buyers;
@@ -133,7 +134,7 @@ export function renderAddProductPage(container) {
       price: document.getElementById('add-price').value,
       size: document.getElementById('add-size').value,
       materials: selectedMaterials,
-      categories: selectedCategories,
+      category: selectedCategory,
       buyerCategories: selectedBuyers,
       imageUrl: document.getElementById('add-image').value,
     });

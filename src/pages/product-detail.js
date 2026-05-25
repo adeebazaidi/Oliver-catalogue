@@ -106,11 +106,9 @@ function renderViewMode(container, product) {
                   </div>
                 </div>
                 <div class="product-detail__field">
-                  <div class="product-detail__field-label">Product Categories</div>
+                  <div class="product-detail__field-label">Category</div>
                   <div class="product-detail__field-value">
-                    ${product.categories && product.categories.length > 0
-                      ? product.categories.map(c => `<span class="badge badge-gold" style="margin-right:4px;margin-bottom:4px;">${c}</span>`).join('')
-                      : '—'}
+                    ${product.category ? `<span class="badge badge-gold">${product.category}</span>` : '—'}
                   </div>
                 </div>
                 <div class="product-detail__field">
@@ -176,7 +174,7 @@ function renderViewMode(container, product) {
 }
 
 function renderEditMode(container, product) {
-  let editCategories = [...product.categories];
+  let editCategory = product.category || '';
   let editMaterials = product.materials ? [...product.materials] : (product.material ? [product.material] : []);
   let editBuyers = product.buyerCategories ? [...product.buyerCategories] : [];
 
@@ -234,8 +232,8 @@ function renderEditMode(container, product) {
               </div>
 
               <div class="form-group" style="margin-bottom: 0;">
-                <label class="form-label">Product Categories</label>
-                <div id="edit-categories"></div>
+                <label class="form-label">Category</label>
+                <div id="edit-category"></div>
               </div>
 
               <div class="form-group" style="margin-bottom: 0;">
@@ -260,9 +258,9 @@ function renderEditMode(container, product) {
     editMaterials = mats;
   }, 'materials');
 
-  renderCategorySelector('edit-categories', editCategories, (cats) => {
-    editCategories = cats;
-  }, 'categories');
+  renderCategorySelector('edit-category', editCategory, (cat) => {
+    editCategory = cat;
+  }, 'categories', true);
 
   renderCategorySelector('edit-buyers', editBuyers, (buyers) => {
     editBuyers = buyers;
@@ -292,7 +290,7 @@ function renderEditMode(container, product) {
       price: document.getElementById('edit-price').value,
       size: document.getElementById('edit-size').value,
       materials: editMaterials,
-      categories: editCategories,
+      category: editCategory,
       buyerCategories: editBuyers,
       imageUrl: document.getElementById('edit-image').value,
     });

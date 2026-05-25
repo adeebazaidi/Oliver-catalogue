@@ -3,7 +3,6 @@
 // =============================================
 
 import { store } from '../store.js';
-import { icons } from '../icons.js';
 
 export function renderDashboardStats(containerId) {
   const container = document.getElementById(containerId);
@@ -26,6 +25,20 @@ export function renderDashboardStats(containerId) {
       if (diffDays < 7) return `${diffDays}d ago`;
       return d.toLocaleDateString('en-US', { day: 'numeric', month: 'short' });
     };
+
+    // Update in-place if stats bar is already rendered to avoid animation/layout flashing
+    const statsBar = container.querySelector('.stats-bar');
+    if (statsBar) {
+      const values = statsBar.querySelectorAll('.stat-card__value');
+      if (values.length >= 5) {
+        values[0].textContent = stats.total;
+        values[1].textContent = stats.categoriesCount;
+        values[2].textContent = stats.favorites;
+        values[3].textContent = `$${stats.avgPrice.toLocaleString('en-US')}`;
+        values[4].textContent = formatDate(stats.lastUpdated);
+        return;
+      }
+    }
 
     container.innerHTML = `
       <div class="stats-bar stagger-children">

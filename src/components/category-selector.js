@@ -1,14 +1,19 @@
 // =============================================
 // CatalogueGen — Category Selector
-// Multi-select category picker with create
+// Picker with support for multi-select or single-select chips
 // =============================================
 
 import { store } from '../store.js';
 import { icons } from '../icons.js';
 
-export function renderCategorySelector(containerId, selectedCategories = [], onChange, type = 'categories') {
+export function renderCategorySelector(containerId, selectedItem = [], onChange, type = 'categories', isSingle = false) {
   const container = document.getElementById(containerId);
   if (!container) return;
+
+  // Normalize selected state: selection is a string in isSingle mode, array in multi mode
+  let selection = isSingle 
+    ? (Array.isArray(selectedItem) ? selectedItem[0] || '' : selectedItem || '')
+    : (Array.isArray(selectedItem) ? [...selectedItem] : (selectedItem ? [selectedItem] : []));
 
   function render() {
     let allItems = [];
@@ -28,13 +33,16 @@ export function renderCategorySelector(containerId, selectedCategories = [], onC
     container.innerHTML = `
       <div class="category-selector">
         <div class="category-chips" id="${containerId}-chips" style="margin-bottom: 0;">
-          ${allItems.map(cat => `
-            <button 
-              type="button" 
-              class="category-chip ${selectedCategories.includes(cat) ? 'active' : ''}" 
-              data-category="${cat}"
-            >${cat}</button>
-          `).join('')}
+          ${allItems.map(cat => {
+            const isActive = isSingle ? (selection === cat) : selection.includes(cat);
+            return `
+              <button 
+                type="button" 
+                class="category-chip ${isActive ? 'active' : ''}" 
+                data-category="${cat}"
+              >${cat}</button>
+            `;
+          }).join('')}
         </div>
         <div class="category-add" style="display:flex;gap:8px;margin-top:10px;">
           <input 
@@ -56,18 +64,25 @@ export function renderCategorySelector(containerId, selectedCategories = [], onC
       chip.addEventListener('click', (e) => {
         e.preventDefault();
         const cat = chip.dataset.category;
-        const idx = selectedCategories.indexOf(cat);
-        if (idx > -1) {
-          selectedCategories.splice(idx, 1);
+        
+        if (isSingle) {
+          selection = (selection === cat) ? '' : cat;
+          render();
+          if (onChange) onChange(selection);
         } else {
-          selectedCategories.push(cat);
+          const idx = selection.indexOf(cat);
+          if (idx > -1) {
+            selection.splice(idx, 1);
+          } else {
+            selection.push(cat);
+          }
+          render();
+          if (onChange) onChange([...selection]);
         }
-        render();
-        if (onChange) onChange([...selectedCategories]);
       });
     });
 
-    // Add new category
+    // Add new item
     const addBtn = document.getElementById(`${containerId}-add-btn`);
     const addInput = document.getElementById(`${containerId}-new-input`);
 
@@ -83,11 +98,17 @@ export function renderCategorySelector(containerId, selectedCategories = [], onC
         store.addCategory(val);
       }
 
-      if (!selectedCategories.includes(val)) {
-        selectedCategories.push(val);
+      if (isSingle) {
+        selection = val;
+        render();
+        if (onChange) onChange(selection);
+      } else {
+        if (!selection.includes(val)) {
+          selection.push(val);
+        }
+        render();
+        if (onChange) onChange([...selection]);
       }
-      render();
-      if (onChange) onChange([...selectedCategories]);
     };
 
     addBtn.addEventListener('click', (e) => {
@@ -103,5 +124,5 @@ export function renderCategorySelector(containerId, selectedCategories = [], onC
   }
 
   render();
-  return { getSelected: () => [...selectedCategories] };
+  return { getSelected: () => (isSingle ? selection : [...selection]) };
 }

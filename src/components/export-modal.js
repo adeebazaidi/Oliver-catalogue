@@ -74,6 +74,8 @@ function renderStepContent() {
   const content = document.getElementById('export-step-content');
   const footer = document.getElementById('export-footer');
 
+  if (footer) footer.style.display = 'flex';
+
   if (currentStep === 1) {
     // Step 1: Reorder products
     content.innerHTML = `
@@ -115,9 +117,15 @@ function renderStepContent() {
             <label class="form-label">Date</label>
             <input type="date" class="form-input" id="cover-date" value="${coverInfo.date}">
           </div>
-          <div class="form-group">
+          <div class="form-group" style="margin-bottom: var(--space-xl);">
             <label class="form-label">Company Name (Optional)</label>
             <input type="text" class="form-input" id="cover-company" value="${coverInfo.companyName}" placeholder="Your Company Name">
+          </div>
+          
+          <!-- Back & Next buttons shifted upwards -->
+          <div style="display:flex; gap:var(--space-md); margin-top:var(--space-lg);">
+            <button class="btn btn-secondary" id="export-back">← Back</button>
+            <button class="btn btn-primary" id="export-next">Next →</button>
           </div>
         </div>
         <div>
@@ -156,10 +164,8 @@ function renderStepContent() {
       document.getElementById(id).addEventListener('input', updatePreview);
     });
 
-    footer.innerHTML = `
-      <button class="btn btn-secondary" id="export-back">← Back</button>
-      <button class="btn btn-primary" id="export-next">Next →</button>
-    `;
+    footer.innerHTML = ``;
+    footer.style.display = 'none';
   } else if (currentStep === 3) {
     // Step 3: Choose format
     content.innerHTML = `

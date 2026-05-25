@@ -112,7 +112,7 @@ function parseCSV(text) {
       size: row.size || row.dimensions || '',
       price: row.price || row.cost || '0',
       material: row.material || row.fabric || '',
-      categories: (row.categories || row.category || '').split(';').map(c => c.trim()).filter(Boolean),
+      category: row.category || row.categories || '',
       imageUrl: row.imageurl || row.image || row['image url'] || '',
     });
   }
@@ -149,7 +149,7 @@ async function parseXLSX(file) {
         size: rowData.size || rowData.dimensions || '',
         price: rowData.price || rowData.cost || '0',
         material: rowData.material || rowData.fabric || '',
-        categories: (rowData.categories || rowData.category || '').split(';').map(c => c.trim()).filter(Boolean),
+        category: rowData.category || rowData.categories || '',
         imageUrl: rowData.imageurl || rowData.image || rowData['image url'] || '',
       });
     }
@@ -184,7 +184,7 @@ function renderPreviewStep() {
                   <th>Size</th>
                   <th>Price</th>
                   <th>Material</th>
-                  <th>Categories</th>
+                  <th>Category</th>
                 </tr>
               </thead>
               <tbody>
@@ -195,7 +195,7 @@ function renderPreviewStep() {
                     <td>${p.size}</td>
                     <td>$${parseFloat(p.price || 0).toLocaleString('en-US')}</td>
                     <td>${p.material}</td>
-                    <td>${p.categories.join(', ')}</td>
+                    <td>${p.category || ''}</td>
                   </tr>
                 `).join('')}
               </tbody>
