@@ -369,11 +369,12 @@ class Store extends EventEmitter {
   }
 
   addProduct(data) {
+    const cleanPriceVal = parseFloat(String(data.price || 0).replace(/[^0-9.-]/g, '')) || 0;
     const product = {
       id: crypto.randomUUID(),
       name: data.name?.trim() || 'Untitled Product',
       size: data.size?.trim() || '',
-      price: parseFloat(data.price) || 0,
+      price: cleanPriceVal,
       materials: Array.isArray(data.materials) ? data.materials : (data.material ? [data.material.trim()] : []),
       category: data.category?.trim() || '',
       buyerCategories: Array.isArray(data.buyerCategories) ? data.buyerCategories : [],
@@ -404,11 +405,12 @@ class Store extends EventEmitter {
     if (idx === -1) return null;
 
     const existing = this._products[idx];
+    const cleanPriceVal = data.price !== undefined ? (parseFloat(String(data.price || 0).replace(/[^0-9.-]/g, '')) || 0) : existing.price;
     const updated = {
       ...existing,
       name: data.name !== undefined ? data.name.trim() : existing.name,
       size: data.size !== undefined ? data.size.trim() : existing.size,
-      price: data.price !== undefined ? parseFloat(data.price) || 0 : existing.price,
+      price: cleanPriceVal,
       materials: data.materials !== undefined ? data.materials : existing.materials || (existing.material ? [existing.material] : []),
       category: data.category !== undefined ? data.category.trim() : existing.category || '',
       buyerCategories: data.buyerCategories !== undefined ? data.buyerCategories : existing.buyerCategories || [],
@@ -475,6 +477,32 @@ class Store extends EventEmitter {
     }
   }
 
+  async deleteCategory(name) {
+    this._categories = this._categories.filter(c => c !== name);
+    this._saveLocalCategories();
+    this.emit('categories-changed', this._categories);
+    if (!isSupabaseConfigured() || !supabase) return;
+    try {
+      await supabase.from('categories').delete().eq('name', name);
+    } catch (e) { console.error('Failed to delete category from Supabase:', e); }
+  }
+
+  async updateCategory(oldName, newName) {
+    const trimmed = newName.trim();
+    if (!trimmed) return false;
+    const idx = this._categories.findIndex(c => c === oldName);
+    if (idx === -1) return false;
+    this._categories[idx] = trimmed;
+    this._categories.sort((a, b) => a.localeCompare(b));
+    this._saveLocalCategories();
+    this.emit('categories-changed', this._categories);
+    if (!isSupabaseConfigured() || !supabase) return true;
+    try {
+      await supabase.from('categories').update({ name: trimmed }).eq('name', oldName);
+    } catch (e) { console.error('Failed to update category in Supabase:', e); }
+    return true;
+  }
+
   // --- Materials ---
   getMaterials() {
     return [...this._materials];
@@ -500,6 +528,32 @@ class Store extends EventEmitter {
     }
   }
 
+  async deleteMaterial(name) {
+    this._materials = this._materials.filter(m => m !== name);
+    this._saveLocalMaterials();
+    this.emit('materials-changed', this._materials);
+    if (!isSupabaseConfigured() || !supabase) return;
+    try {
+      await supabase.from('materials').delete().eq('name', name);
+    } catch (e) { console.error('Failed to delete material from Supabase:', e); }
+  }
+
+  async updateMaterial(oldName, newName) {
+    const trimmed = newName.trim();
+    if (!trimmed) return false;
+    const idx = this._materials.findIndex(m => m === oldName);
+    if (idx === -1) return false;
+    this._materials[idx] = trimmed;
+    this._materials.sort((a, b) => a.localeCompare(b));
+    this._saveLocalMaterials();
+    this.emit('materials-changed', this._materials);
+    if (!isSupabaseConfigured() || !supabase) return true;
+    try {
+      await supabase.from('materials').update({ name: trimmed }).eq('name', oldName);
+    } catch (e) { console.error('Failed to update material in Supabase:', e); }
+    return true;
+  }
+
   // --- Buyer Categories ---
   getBuyerCategories() {
     return [...this._buyerCategories];
@@ -523,6 +577,32 @@ class Store extends EventEmitter {
       this._buyerCategories.sort((a, b) => a.localeCompare(b));
       this._saveBuyerCategories(trimmed);
     }
+  }
+
+  async deleteBuyerCategory(name) {
+    this._buyerCategories = this._buyerCategories.filter(c => c !== name);
+    this._saveLocalBuyerCategories();
+    this.emit('buyers-changed', this._buyerCategories);
+    if (!isSupabaseConfigured() || !supabase) return;
+    try {
+      await supabase.from('buyer_categories').delete().eq('name', name);
+    } catch (e) { console.error('Failed to delete buyer category from Supabase:', e); }
+  }
+
+  async updateBuyerCategory(oldName, newName) {
+    const trimmed = newName.trim();
+    if (!trimmed) return false;
+    const idx = this._buyerCategories.findIndex(c => c === oldName);
+    if (idx === -1) return false;
+    this._buyerCategories[idx] = trimmed;
+    this._buyerCategories.sort((a, b) => a.localeCompare(b));
+    this._saveLocalBuyerCategories();
+    this.emit('buyers-changed', this._buyerCategories);
+    if (!isSupabaseConfigured() || !supabase) return true;
+    try {
+      await supabase.from('buyer_categories').update({ name: trimmed }).eq('name', oldName);
+    } catch (e) { console.error('Failed to update buyer category in Supabase:', e); }
+    return true;
   }
 
   // --- Selection ---

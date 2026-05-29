@@ -185,5 +185,7 @@ export async function generatePPT(products, coverInfo) {
 
   // Save
   const fileName = (coverInfo.title || 'catalogue').replace(/[^a-zA-Z0-9]/g, '_').toLowerCase();
-  await pres.writeFile({ fileName: `${fileName}.pptx` });
+  const buffer = await pres.write({ outputType: 'arraybuffer' });
+  const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.presentationml.presentation' });
+  return { blob, fileName: `${fileName}.pptx` };
 }

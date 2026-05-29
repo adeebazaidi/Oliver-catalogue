@@ -25,6 +25,12 @@ function initApp() {
   const app = document.getElementById('app');
   app.style.display = 'block';
 
+  // Apply saved theme
+  const savedTheme = localStorage.getItem('theme');
+  if (savedTheme === 'dark') {
+    document.documentElement.setAttribute('data-theme', 'dark');
+  }
+
   // Setup routes
   const main = document.getElementById('app-main');
   router.addRoute('/', () => renderHomePage(main));

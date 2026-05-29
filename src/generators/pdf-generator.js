@@ -179,5 +179,6 @@ export async function generatePDF(products, coverInfo) {
 
   // Save
   const fileName = (coverInfo.title || 'catalogue').replace(/[^a-zA-Z0-9]/g, '_').toLowerCase();
-  doc.save(`${fileName}.pdf`);
+  const blob = doc.output('blob');
+  return { blob, fileName: `${fileName}.pdf` };
 }

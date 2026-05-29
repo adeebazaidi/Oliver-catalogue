@@ -3,10 +3,10 @@
 // Client-side password protection
 // =============================================
 
-const PASSWORD_HASH = 'b942aa539aeaf87e0216f83c4a9c6943830e73a7149483c4496a4d99de5ac617';
+export const PASSWORD_HASH = 'b942aa539aeaf87e0216f83c4a9c6943830e73a7149483c4496a4d99de5ac617';
 const SESSION_KEY = 'cataloguegen_auth';
 
-async function hashPassword(password) {
+export async function hashPassword(password) {
   const encoder = new TextEncoder();
   const data = encoder.encode(password);
   const hashBuffer = await crypto.subtle.digest('SHA-256', data);

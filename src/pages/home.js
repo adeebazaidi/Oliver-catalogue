@@ -11,10 +11,16 @@ import { renderSortBar } from '../components/sort-bar.js';
 import { createProductCard } from '../components/product-card.js';
 import { showExportModal } from '../components/export-modal.js';
 import { showBulkImportModal } from '../components/bulk-import-modal.js';
-import { showBackupMenu } from '../components/backup-menu.js';
+import { showSettingsModal } from '../components/settings-modal.js';
 
 let sortBarInstance = null;
 let currentFilters = { search: '', sort: 'newest', material: '', category: '', buyer: '', favoritesOnly: false };
+
+// Pagination State
+let currentPage = 1;
+const PAGE_SIZE = 50;
+let observer = null;
+let allFilteredProducts = [];
 
 export function renderHomePage(container) {
   container.innerHTML = `
@@ -66,7 +72,7 @@ export function renderHomePage(container) {
   });
 
   document.getElementById('btn-backup').addEventListener('click', () => {
-    showBackupMenu();
+    showSettingsModal();
   });
 
   // Listen for data changes
@@ -125,13 +131,17 @@ export function renderHomePage(container) {
   renderSelectionToolbar();
 }
 
-function renderProductGrid() {
+function renderProductGrid(reset = true) {
   const gridContainer = document.getElementById('product-grid-container');
   if (!gridContainer) return;
 
-  const products = store.getFilteredProducts(currentFilters);
+  if (reset) {
+    currentPage = 1;
+    allFilteredProducts = store.getFilteredProducts(currentFilters);
+    if (observer) observer.disconnect();
+  }
 
-  if (products.length === 0) {
+  if (allFilteredProducts.length === 0) {
     const hasAnyProducts = store.getProducts().length > 0;
     gridContainer.innerHTML = `
       <div class="empty-state">
@@ -152,13 +162,39 @@ function renderProductGrid() {
     return;
   }
 
-  gridContainer.innerHTML = '<div class="product-grid stagger-children" id="product-grid"></div>';
-  const grid = document.getElementById('product-grid');
+  if (reset) {
+    gridContainer.innerHTML = '<div class="product-grid stagger-children" id="product-grid"></div><div id="grid-sentinel" style="height: 20px; width: 100%;"></div>';
+  }
 
-  products.forEach(product => {
+  const grid = document.getElementById('product-grid');
+  const startIndex = (currentPage - 1) * PAGE_SIZE;
+  const endIndex = currentPage * PAGE_SIZE;
+  const pageProducts = allFilteredProducts.slice(startIndex, endIndex);
+
+  pageProducts.forEach(product => {
     const card = createProductCard(product);
     grid.appendChild(card);
   });
+
+  if (endIndex < allFilteredProducts.length) {
+    setupIntersectionObserver();
+  }
+}
+
+function setupIntersectionObserver() {
+  const sentinel = document.getElementById('grid-sentinel');
+  if (!sentinel) return;
+
+  if (observer) observer.disconnect();
+
+  observer = new IntersectionObserver((entries) => {
+    if (entries[0].isIntersecting) {
+      currentPage++;
+      renderProductGrid(false); // append next page without reset
+    }
+  }, { rootMargin: '400px' });
+
+  observer.observe(sentinel);
 }
 
 function renderSelectionToolbar() {

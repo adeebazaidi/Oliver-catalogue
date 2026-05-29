@@ -95,25 +95,108 @@ async function handleFile(file) {
   }
 }
 
+function splitCSVLine(line) {
+  const result = [];
+  let current = '';
+  let inQuotes = false;
+  for (let i = 0; i < line.length; i++) {
+    const char = line[i];
+    if (char === '"') {
+      inQuotes = !inQuotes;
+    } else if (char === ',' && !inQuotes) {
+      result.push(current.trim());
+      current = '';
+    } else {
+      current += char;
+    }
+  }
+  result.push(current.trim());
+  return result;
+}
+
+function cleanPrice(val) {
+  if (val === undefined || val === null) return '0';
+  let str = String(val).replace(/["']/g, '').trim();
+  str = str.replace(/[^0-9.-]/g, '');
+  return str || '0';
+}
+
+function getCellValue(cell) {
+  if (!cell) return '';
+  let value = cell.value;
+  if (value && typeof value === 'object') {
+    if (value.result !== undefined) {
+      return value.result;
+    } else if (value.richText) {
+      return value.richText.map(t => t.text).join('');
+    } else if (value.text !== undefined) {
+      return value.text;
+    }
+  }
+  return value;
+}
+
+function assignCategories(row) {
+  const cats = store.getCategories().map(s => s.toLowerCase());
+  const mats = store.getMaterials().map(s => s.toLowerCase());
+  const buyers = store.getBuyerCategories().map(s => s.toLowerCase());
+
+  const catCol = (row.category || row.categories || row.type || '').trim();
+  const matCol = (row.material || row.fabric || row.finish || '').trim();
+  const buyerCol = (row.buyer || row.buyercategory || row.client || '').trim();
+
+  let finalCategory = '';
+  let finalMaterial = '';
+  let finalBuyer = '';
+
+  const processValue = (val, defaultType) => {
+    if (!val) return;
+    const lower = val.toLowerCase();
+    
+    if (mats.includes(lower)) {
+      finalMaterial = val;
+    } else if (buyers.includes(lower)) {
+      finalBuyer = val;
+    } else if (cats.includes(lower)) {
+      finalCategory = val;
+    } else {
+      // Create new in the column it was found
+      if (defaultType === 'material') finalMaterial = val;
+      else if (defaultType === 'buyer') finalBuyer = val;
+      else finalCategory = val;
+    }
+  };
+
+  // Process in order of precedence (if multiple columns exist)
+  processValue(catCol, 'category');
+  processValue(matCol, 'material');
+  processValue(buyerCol, 'buyer');
+
+  return { category: finalCategory, material: finalMaterial, buyer: finalBuyer };
+}
+
 function parseCSV(text) {
   const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
   if (lines.length < 2) return [];
 
-  const headers = lines[0].split(',').map(h => h.trim().toLowerCase());
+  const headers = splitCSVLine(lines[0]).map(h => h.toLowerCase());
   const products = [];
 
   for (let i = 1; i < lines.length; i++) {
-    const values = lines[i].split(',').map(v => v.trim());
+    const values = splitCSVLine(lines[i]);
     const row = {};
     headers.forEach((h, idx) => { row[h] = values[idx] || ''; });
 
+    const { category, material, buyer } = assignCategories(row);
+
     products.push({
-      name: row.name || row.product || row['product name'] || '',
-      size: row.size || row.dimensions || '',
-      price: row.price || row.cost || '0',
-      material: row.material || row.fabric || '',
-      category: row.category || row.categories || '',
-      imageUrl: row.imageurl || row.image || row['image url'] || '',
+      name: row.name || row.product || row['product name'] || row.title || row.item || row.design || row.code || '',
+      size: row.size || row.dimensions || row.dimension || row.dim || '',
+      price: cleanPrice(row.price || row.cost || row.prize || row.mrp || row.rate || row.amount || '0'),
+      material: material,
+      category: category,
+      buyerCategories: buyer ? [buyer] : [],
+      imageUrl: row.imageurl || row.image || row['image url'] || row.picture || row.photo || row.img || '',
     });
   }
 
@@ -132,27 +215,37 @@ async function parseXLSX(file) {
   const headers = [];
   const products = [];
 
-  worksheet.eachRow((row, rowNumber) => {
-    if (rowNumber === 1) {
-      row.eachCell((cell) => {
-        headers.push(String(cell.value || '').trim().toLowerCase());
-      });
-    } else {
-      const rowData = {};
-      row.eachCell((cell, colNumber) => {
-        const header = headers[colNumber - 1];
-        if (header) rowData[header] = String(cell.value || '').trim();
-      });
+  // Get headers from first row
+  const headerRow = worksheet.getRow(1);
+  const colCount = worksheet.columnCount;
+  for (let i = 1; i <= colCount; i++) {
+    const val = getCellValue(headerRow.getCell(i));
+    headers.push(String(val || '').trim().toLowerCase());
+  }
 
-      products.push({
-        name: rowData.name || rowData.product || rowData['product name'] || '',
-        size: rowData.size || rowData.dimensions || '',
-        price: rowData.price || rowData.cost || '0',
-        material: rowData.material || rowData.fabric || '',
-        category: rowData.category || rowData.categories || '',
-        imageUrl: rowData.imageurl || rowData.image || rowData['image url'] || '',
-      });
+  worksheet.eachRow((row, rowNumber) => {
+    if (rowNumber === 1) return;
+
+    const rowData = {};
+    for (let i = 1; i <= colCount; i++) {
+      const header = headers[i - 1];
+      if (header) {
+        const val = getCellValue(row.getCell(i));
+        rowData[header] = String(val || '').trim();
+      }
     }
+
+    const { category, material, buyer } = assignCategories(rowData);
+
+    products.push({
+      name: rowData.name || rowData.product || rowData['product name'] || rowData.title || rowData.item || rowData.design || rowData.code || '',
+      size: rowData.size || rowData.dimensions || rowData.dimension || rowData.dim || '',
+      price: cleanPrice(rowData.price || rowData.cost || rowData.prize || rowData.mrp || rowData.rate || rowData.amount || '0'),
+      material: material,
+      category: category,
+      buyerCategories: buyer ? [buyer] : [],
+      imageUrl: rowData.imageurl || rowData.image || rowData['image url'] || rowData.picture || rowData.photo || rowData.img || '',
+    });
   });
 
   return products.filter(p => p.name);

@@ -192,5 +192,6 @@ export async function generateExcel(products, coverInfo) {
   // Save
   const buffer = await workbook.xlsx.writeBuffer();
   const fileName = (coverInfo.title || 'catalogue').replace(/[^a-zA-Z0-9]/g, '_').toLowerCase();
-  saveAs(new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }), `${fileName}.xlsx`);
+  const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+  return { blob, fileName: `${fileName}.xlsx` };
 }

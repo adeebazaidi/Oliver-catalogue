@@ -51,7 +51,6 @@ export function renderSortBar(containerId, { onFilterChange } = {}) {
           <option value="name-za" ${state.sort === 'name-za' ? 'selected' : ''}>Name Z→A</option>
           <option value="price-low" ${state.sort === 'price-low' ? 'selected' : ''}>Price: Low → High</option>
           <option value="price-high" ${state.sort === 'price-high' ? 'selected' : ''}>Price: High → Low</option>
-          <option value="material" ${state.sort === 'material' ? 'selected' : ''}>Material</option>
           <option value="favorites" ${state.sort === 'favorites' ? 'selected' : ''}>Favorites First</option>
         </select>
 

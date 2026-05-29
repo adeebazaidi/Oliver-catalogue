@@ -6,6 +6,8 @@
 import { store } from '../store.js';
 import { icons } from '../icons.js';
 import { showToast } from './toast.js';
+import ExportWorker from '../workers/export.worker.js?worker';
+import { saveAs } from 'file-saver';
 
 let currentStep = 1;
 let orderedProducts = [];
@@ -274,7 +276,7 @@ function initDragAndDrop() {
   }
 }
 
-async function handleExport(format) {
+function handleExport(format) {
   const progressDiv = document.getElementById('export-progress');
   const progressFill = document.getElementById('progress-fill');
   const progressText = document.getElementById('progress-text');
@@ -285,40 +287,45 @@ async function handleExport(format) {
   progressFill.style.width = '20%';
   progressText.textContent = `Generating ${format.toUpperCase()}...`;
 
-  try {
-    progressFill.style.width = '50%';
+  const worker = new ExportWorker();
 
-    if (format === 'pdf') {
-      const { generatePDF } = await import('../generators/pdf-generator.js');
-      await generatePDF(orderedProducts, coverInfo);
-    } else if (format === 'ppt') {
-      const { generatePPT } = await import('../generators/ppt-generator.js');
-      await generatePPT(orderedProducts, coverInfo);
-    } else if (format === 'excel') {
-      const { generateExcel } = await import('../generators/excel-generator.js');
-      await generateExcel(orderedProducts, coverInfo);
+  worker.onmessage = (e) => {
+    const { success, blob, fileName, error } = e.data;
+    if (success) {
+      progressFill.style.width = '100%';
+      progressText.textContent = 'Done! File downloaded.';
+      
+      saveAs(blob, fileName);
+
+      showToast({
+        type: 'success',
+        title: 'Catalogue Generated',
+        message: `Your ${format.toUpperCase()} catalogue has been downloaded.`,
+      });
+
+      setTimeout(closeModal, 1500);
+    } else {
+      console.error('Export failed:', error);
+      progressText.textContent = 'Export failed. Please try again.';
+      progressFill.style.background = 'var(--color-danger)';
+      showToast({
+        type: 'error',
+        title: 'Export Failed',
+        message: error,
+      });
     }
+    worker.terminate();
+  };
 
-    progressFill.style.width = '100%';
-    progressText.textContent = 'Done! File downloaded.';
-
-    showToast({
-      type: 'success',
-      title: 'Catalogue Generated',
-      message: `Your ${format.toUpperCase()} catalogue has been downloaded.`,
-    });
-
-    setTimeout(closeModal, 1500);
-  } catch (err) {
-    console.error('Export failed:', err);
-    progressText.textContent = 'Export failed. Please try again.';
+  worker.onerror = (err) => {
+    console.error('Worker error:', err);
+    progressText.textContent = 'Worker failed to start or crashed.';
     progressFill.style.background = 'var(--color-danger)';
-    showToast({
-      type: 'error',
-      title: 'Export Failed',
-      message: err.message,
-    });
-  }
+    worker.terminate();
+  };
+
+  progressFill.style.width = '50%';
+  worker.postMessage({ format, orderedProducts, coverInfo });
 }
 
 function closeModal() {
