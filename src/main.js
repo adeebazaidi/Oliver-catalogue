@@ -4,9 +4,7 @@
 
 import './styles/index.css';
 import './styles/animations.css';
-import './auth/gate.css';
-
-import { renderGate } from './auth/gate.js';
+import './styles/animations.css';
 import { router } from './router.js';
 import { store } from './store.js';
 import { icons } from './icons.js';
@@ -16,12 +14,10 @@ import { renderHomePage } from './pages/home.js';
 import { renderProductDetailPage } from './pages/product-detail.js';
 import { renderAddProductPage } from './pages/add-product.js';
 
-// Initialize password gate
-renderGate(() => {
-  initApp();
-});
+// Initialize app directly
+initApp();
 
-function initApp() {
+async function initApp() {
   const app = document.getElementById('app');
   app.style.display = 'block';
 
@@ -30,6 +26,9 @@ function initApp() {
   if (savedTheme === 'dark') {
     document.documentElement.setAttribute('data-theme', 'dark');
   }
+
+  // Wait for IndexedDB store to be ready
+  await store.whenReady();
 
   // Setup routes
   const main = document.getElementById('app-main');

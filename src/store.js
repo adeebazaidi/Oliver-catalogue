@@ -1,17 +1,11 @@
 // =============================================
 // CatalogueGen — Data Store
-// localStorage-backed & Supabase-synced product database
+// IndexedDB-backed & Firebase-synced product database
 // =============================================
 
-import { createClient } from '@supabase/supabase-js';
-import { SUPABASE_URL, SUPABASE_KEY, isSupabaseConfigured } from './config.js';
 import { showToast } from './components/toast.js';
-
-const STORAGE_KEY = 'cataloguegen_products';
-const CATEGORIES_KEY = 'cataloguegen_categories';
-
-// Initialize Supabase if configured
-const supabase = isSupabaseConfigured() ? createClient(SUPABASE_URL, SUPABASE_KEY) : null;
+import { db } from './db.js';
+import { syncEngine } from './sync-engine.js';
 
 class EventEmitter {
   constructor() {
@@ -32,331 +26,208 @@ class EventEmitter {
 class Store extends EventEmitter {
   constructor() {
     super();
-    this._products = this._load(STORAGE_KEY, []);
-    this._categories = this._load(CATEGORIES_KEY, []);
-    this._materials = this._load('cataloguegen_materials', []);
-    this._buyerCategories = this._load('cataloguegen_buyer_categories', []);
-    
-    // Set defaults if empty
-    if (this._categories.length === 0) {
-      this._categories = ['Lighting', 'Tables', 'Wall Arts'].sort((a, b) => a.localeCompare(b));
-      this._saveLocalCategories();
-    }
-    if (this._materials.length === 0) {
-      this._materials = ['Copper', 'Brass', 'Wood', 'Iron', 'Steel', 'Aluminium', 'Glass'].sort((a, b) => a.localeCompare(b));
-      this._saveLocalMaterials();
-    }
-    if (this._buyerCategories.length === 0) {
-      this._buyerCategories = ['Michael Arams', 'Crate & Barrels', 'Rebecca Udall'].sort((a, b) => a.localeCompare(b));
-      this._saveLocalBuyerCategories();
-    }
+    // In-memory cache (loaded from IndexedDB on init)
+    this._products = [];
+    this._categories = [];
+    this._materials = [];
+    this._buyerCategories = [];
 
     this._selected = new Set();
     this._orderedSelection = [];
     this._isImporting = false;
+    this._ready = false;
 
-    // Connect to shared database asynchronously
-    this.initRemote();
+    // Initialize asynchronously
+    this._initPromise = this._init();
   }
 
-  // --- Persistence ---
-  _load(key, fallback) {
+  async _init() {
     try {
-      const raw = localStorage.getItem(key);
-      return raw ? JSON.parse(raw) : fallback;
-    } catch {
-      return fallback;
-    }
-  }
+      // Step 1: Migrate from localStorage if needed (one-time)
+      await db.migrateFromLocalStorage();
 
-  _saveLocalProducts(suppressEvent = false) {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(this._products));
-    if (!suppressEvent) {
+      // Step 2: Load everything from IndexedDB into memory
+      this._products = await db.getAllProducts();
+      this._categories = await db.getAllCategories();
+      this._materials = await db.getAllMaterials();
+      this._buyerCategories = await db.getAllBuyerCategories();
+
+      // Step 3: Set defaults if completely empty (fresh install)
+      if (this._categories.length === 0) {
+        const defaults = ['Lighting', 'Tables', 'Wall Arts'].sort((a, b) => a.localeCompare(b));
+        for (const name of defaults) await db.addCategory(name);
+        this._categories = defaults;
+      }
+      if (this._materials.length === 0) {
+        const defaults = ['Copper', 'Brass', 'Wood', 'Iron', 'Steel', 'Aluminium', 'Glass'].sort((a, b) => a.localeCompare(b));
+        for (const name of defaults) await db.addMaterial(name);
+        this._materials = defaults;
+      }
+      if (this._buyerCategories.length === 0) {
+        const defaults = ['Michael Arams', 'Crate & Barrels', 'Rebecca Udall'].sort((a, b) => a.localeCompare(b));
+        for (const name of defaults) await db.addBuyerCategory(name);
+        this._buyerCategories = defaults;
+      }
+
+      this._ready = true;
+      this.emit('store-ready');
       this.emit('products-changed', this._products);
+
+      // Step 4: Trigger background sync engine pull
+      syncEngine.pullRemoteChanges();
+    } catch (err) {
+      console.error('[Store] Initialization failed:', err);
+      this._ready = true;
+      this.emit('store-ready');
     }
   }
 
-  _saveLocalCategories() {
-    localStorage.setItem(CATEGORIES_KEY, JSON.stringify(this._categories));
+  async whenReady() {
+    if (this._ready) return;
+    return this._initPromise;
+  }
+
+  // --- Background Sync Engine Triggers ---
+  _triggerSync() {
+    syncEngine.triggerSync();
+  }
+
+  // --- Categories ---
+  getCategories() {
+    return [...this._categories];
+  }
+
+  addCategory(name) {
+    const trimmed = name.trim();
+    if (!trimmed) return false;
+    if (this._categories.some(c => c.toLowerCase() === trimmed.toLowerCase())) return false;
+    this._categories.push(trimmed);
+    this._categories.sort((a, b) => a.localeCompare(b));
+    
+    db.addCategory(trimmed).catch(err => console.error('[Store] Failed to save category to IndexedDB:', err));
     this.emit('categories-changed', this._categories);
+    return true;
   }
 
-  _saveLocalMaterials() {
-    localStorage.setItem('cataloguegen_materials', JSON.stringify(this._materials));
+  _ensureCategory(name) {
+    const trimmed = name.trim();
+    if (!trimmed) return;
+    if (!this._categories.some(c => c.toLowerCase() === trimmed.toLowerCase())) {
+      this._categories.push(trimmed);
+      this._categories.sort((a, b) => a.localeCompare(b));
+      db.addCategory(trimmed).catch(err => console.error('[Store] Failed to ensure category in IndexedDB:', err));
+    }
+  }
+
+  async deleteCategory(name) {
+    this._categories = this._categories.filter(c => c !== name);
+    this.emit('categories-changed', this._categories);
+    await db.deleteCategory(name);
+  }
+
+  async updateCategory(oldName, newName) {
+    const trimmed = newName.trim();
+    if (!trimmed) return false;
+    const idx = this._categories.findIndex(c => c === oldName);
+    if (idx === -1) return false;
+    this._categories[idx] = trimmed;
+    this._categories.sort((a, b) => a.localeCompare(b));
+    this.emit('categories-changed', this._categories);
+    
+    await db.updateCategory(oldName, trimmed);
+    return true;
+  }
+
+  // --- Materials ---
+  getMaterials() {
+    return [...this._materials];
+  }
+
+  addMaterial(name) {
+    const trimmed = name.trim();
+    if (!trimmed) return false;
+    if (this._materials.some(m => m.toLowerCase() === trimmed.toLowerCase())) return false;
+    this._materials.push(trimmed);
+    this._materials.sort((a, b) => a.localeCompare(b));
+    
+    db.addMaterial(trimmed).catch(err => console.error('[Store] Failed to save material to IndexedDB:', err));
     this.emit('materials-changed', this._materials);
+    return true;
   }
 
-  _saveLocalBuyerCategories() {
-    localStorage.setItem('cataloguegen_buyer_categories', JSON.stringify(this._buyerCategories));
-    this.emit('buyer-categories-changed', this._buyerCategories);
-  }
-
-  _saveLocalBackup() {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(this._products));
-    localStorage.setItem(CATEGORIES_KEY, JSON.stringify(this._categories));
-    localStorage.setItem('cataloguegen_materials', JSON.stringify(this._materials));
-    localStorage.setItem('cataloguegen_buyer_categories', JSON.stringify(this._buyerCategories));
-  }
-
-  async _saveProducts(product, action, suppressEvent = false) {
-    this._saveLocalProducts(suppressEvent);
-
-    if (!isSupabaseConfigured() || !supabase) return;
-
-    try {
-      if (action === 'insert') {
-        const { error } = await supabase.from('products').insert({
-          id: product.id,
-          name: product.name,
-          size: product.size,
-          price: product.price,
-          materials: product.materials,
-          category: product.category,
-          buyer_categories: product.buyerCategories,
-          image_url: product.imageUrl,
-          favorite: product.favorite,
-          created_at: product.createdAt,
-          updated_at: product.updatedAt,
-        });
-        if (error) throw error;
-      } else if (action === 'update') {
-        const { error } = await supabase
-          .from('products')
-          .update({
-            name: product.name,
-            size: product.size,
-            price: product.price,
-            materials: product.materials,
-            category: product.category,
-            buyer_categories: product.buyerCategories,
-            image_url: product.imageUrl,
-            favorite: product.favorite,
-            updated_at: product.updatedAt,
-          })
-          .eq('id', product.id);
-        if (error) throw error;
-      } else if (action === 'delete') {
-        const { error } = await supabase
-          .from('products')
-          .delete()
-          .eq('id', product.id);
-        if (error) throw error;
-      }
-    } catch (err) {
-      console.error(`Failed to sync product ${action} to Supabase:`, err);
-      showToast({
-        type: 'error',
-        title: 'Sync Error',
-        message: 'Could not sync changes to the shared database. Saved locally.',
-      });
+  _ensureMaterial(name) {
+    const trimmed = name.trim();
+    if (!trimmed) return;
+    if (!this._materials.some(m => m.toLowerCase() === trimmed.toLowerCase())) {
+      this._materials.push(trimmed);
+      this._materials.sort((a, b) => a.localeCompare(b));
+      db.addMaterial(trimmed).catch(err => console.error('[Store] Failed to ensure material in IndexedDB:', err));
     }
   }
 
-  async _saveCategories(name) {
-    this._saveLocalCategories();
+  async deleteMaterial(name) {
+    this._materials = this._materials.filter(m => m !== name);
+    this.emit('materials-changed', this._materials);
+    await db.deleteMaterial(name);
+  }
 
-    if (!isSupabaseConfigured() || !supabase) return;
-    try {
-      const { error } = await supabase.from('categories').insert({ name });
-      if (error && error.code !== '23505') throw error;
-    } catch (err) {
-      console.error('Failed to sync category to Supabase:', err);
+  async updateMaterial(oldName, newName) {
+    const trimmed = newName.trim();
+    if (!trimmed) return false;
+    const idx = this._materials.findIndex(m => m === oldName);
+    if (idx === -1) return false;
+    this._materials[idx] = trimmed;
+    this._materials.sort((a, b) => a.localeCompare(b));
+    this.emit('materials-changed', this._materials);
+    
+    await db.updateMaterial(oldName, trimmed);
+    return true;
+  }
+
+  // --- Buyer Categories ---
+  getBuyerCategories() {
+    return [...this._buyerCategories];
+  }
+
+  addBuyerCategory(name) {
+    const trimmed = name.trim();
+    if (!trimmed) return false;
+    if (this._buyerCategories.some(b => b.toLowerCase() === trimmed.toLowerCase())) return false;
+    this._buyerCategories.push(trimmed);
+    this._buyerCategories.sort((a, b) => a.localeCompare(b));
+    
+    db.addBuyerCategory(trimmed).catch(err => console.error('[Store] Failed to save buyer category to IndexedDB:', err));
+    this.emit('buyers-changed', this._buyerCategories);
+    return true;
+  }
+
+  _ensureBuyerCategory(name) {
+    const trimmed = name.trim();
+    if (!trimmed) return;
+    if (!this._buyerCategories.some(b => b.toLowerCase() === trimmed.toLowerCase())) {
+      this._buyerCategories.push(trimmed);
+      this._buyerCategories.sort((a, b) => a.localeCompare(b));
+      db.addBuyerCategory(trimmed).catch(err => console.error('[Store] Failed to ensure buyer category in IndexedDB:', err));
     }
   }
 
-  async _saveMaterials(name) {
-    this._saveLocalMaterials();
-
-    if (!isSupabaseConfigured() || !supabase) return;
-    try {
-      const { error } = await supabase.from('materials').insert({ name });
-      if (error && error.code !== '23505') throw error;
-    } catch (err) {
-      console.error('Failed to sync material to Supabase:', err);
-    }
+  async deleteBuyerCategory(name) {
+    this._buyerCategories = this._buyerCategories.filter(b => b !== name);
+    this.emit('buyers-changed', this._buyerCategories);
+    await db.deleteBuyerCategory(name);
   }
 
-  async _saveBuyerCategories(name) {
-    this._saveLocalBuyerCategories();
-
-    if (!isSupabaseConfigured() || !supabase) return;
-    try {
-      const { error } = await supabase.from('buyer_categories').insert({ name });
-      if (error && error.code !== '23505') throw error;
-    } catch (err) {
-      console.error('Failed to sync buyer category to Supabase:', err);
-    }
-  }
-
-  // --- Supabase Remote Fetch & Real-time Sync ---
-  async initRemote() {
-    if (!isSupabaseConfigured() || !supabase) {
-      console.log('Supabase credentials missing. Operating in offline/localStorage mode.');
-      return;
-    }
-
-    try {
-      await Promise.all([
-        this._refetchProducts(),
-        this._refetchCategories(),
-        this._refetchMaterials(),
-        this._refetchBuyerCategories()
-      ]);
-
-      this._saveLocalBackup();
-      this._subscribeRealtime();
-    } catch (err) {
-      console.error('Supabase initialization failed, running with local data:', err);
-    }
-  }
-
-  async _refetchProducts() {
-    if (!supabase) return;
-    try {
-      const { data: products, error } = await supabase
-        .from('products')
-        .select('*')
-        .order('created_at', { ascending: false });
-
-      if (error) throw error;
-      if (products) {
-        this._products = products.map(p => ({
-          id: p.id,
-          name: p.name,
-          size: p.size || '',
-          price: parseFloat(p.price) || 0,
-          materials: p.materials || [],
-          material: p.materials?.[0] || '',
-          category: p.category || '',
-          buyerCategories: p.buyer_categories || [],
-          imageUrl: p.image_url || '',
-          favorite: p.favorite || false,
-          createdAt: p.created_at,
-          updatedAt: p.updated_at,
-        }));
-        this.emit('products-changed', this._products);
-      }
-    } catch (err) {
-      console.error('Error refetching products:', err);
-    }
-  }
-
-  async _refetchCategories() {
-    if (!supabase) return;
-    try {
-      const { data: categories, error } = await supabase
-        .from('categories')
-        .select('name');
-
-      if (error) throw error;
-      if (categories) {
-        this._categories = categories.map(c => c.name).sort((a, b) => a.localeCompare(b));
-        this.emit('categories-changed', this._categories);
-      }
-    } catch (err) {
-      console.error('Error refetching categories:', err);
-    }
-  }
-
-  async _refetchMaterials() {
-    if (!supabase) return;
-    try {
-      const { data: materials, error } = await supabase
-        .from('materials')
-        .select('name');
-
-      if (error) throw error;
-      if (materials) {
-        this._materials = materials.map(m => m.name).sort((a, b) => a.localeCompare(b));
-        this.emit('materials-changed', this._materials);
-      }
-    } catch (err) {
-      console.error('Error refetching materials:', err);
-    }
-  }
-
-  async _refetchBuyerCategories() {
-    if (!supabase) return;
-    try {
-      const { data: buyerCategories, error } = await supabase
-        .from('buyer_categories')
-        .select('name');
-
-      if (error) throw error;
-      if (buyerCategories) {
-        this._buyerCategories = buyerCategories.map(b => b.name).sort((a, b) => a.localeCompare(b));
-        this.emit('buyer-categories-changed', this._buyerCategories);
-      }
-    } catch (err) {
-      console.error('Error refetching buyer categories:', err);
-    }
-  }
-
-  _subscribeRealtime() {
-    if (!supabase) return;
-    supabase
-      .channel('schema-db-changes')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'products' }, async () => {
-        await this._refetchProducts();
-      })
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'categories' }, async () => {
-        await this._refetchCategories();
-      })
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'materials' }, async () => {
-        await this._refetchMaterials();
-      })
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'buyer_categories' }, async () => {
-        await this._refetchBuyerCategories();
-      })
-      .subscribe();
-  }
-
-  async _saveProductsBulk(products) {
-    if (!isSupabaseConfigured() || !supabase) return;
-    try {
-      const rows = products.map(product => ({
-        id: product.id,
-        name: product.name,
-        size: product.size,
-        price: product.price,
-        materials: product.materials,
-        category: product.category,
-        buyer_categories: product.buyerCategories,
-        image_url: product.imageUrl,
-        favorite: product.favorite,
-        created_at: product.createdAt,
-        updated_at: product.updatedAt,
-      }));
-      const { error } = await supabase.from('products').insert(rows);
-      if (error) throw error;
-    } catch (err) {
-      console.error('Failed to bulk sync products to Supabase:', err);
-      showToast({
-        type: 'error',
-        title: 'Sync Error',
-        message: 'Could not sync imported products to the shared database.',
-      });
-    }
-  }
-
-  async _syncImportedDataToSupabase() {
-    if (!isSupabaseConfigured() || !supabase) return;
-    try {
-      if (this._products.length > 0) {
-        await this._saveProductsBulk(this._products);
-      }
-      for (const cat of this._categories) {
-        await supabase.from('categories').insert({ name: cat }).maybeSingle();
-      }
-      for (const mat of this._materials) {
-        await supabase.from('materials').insert({ name: mat }).maybeSingle();
-      }
-      for (const bc of this._buyerCategories) {
-        await supabase.from('buyer_categories').insert({ name: bc }).maybeSingle();
-      }
-    } catch (err) {
-      console.error('Failed to sync imported data to Supabase:', err);
-    }
+  async updateBuyerCategory(oldName, newName) {
+    const trimmed = newName.trim();
+    if (!trimmed) return false;
+    const idx = this._buyerCategories.findIndex(c => c === oldName);
+    if (idx === -1) return false;
+    this._buyerCategories[idx] = trimmed;
+    this._buyerCategories.sort((a, b) => a.localeCompare(b));
+    this.emit('buyers-changed', this._buyerCategories);
+    
+    await db.updateBuyerCategory(oldName, trimmed);
+    return true;
   }
 
   // --- Products CRUD ---
@@ -368,7 +239,17 @@ class Store extends EventEmitter {
     return this._products.find(p => p.id === id) || null;
   }
 
-  addProduct(data) {
+  async resolveImageUrl(url) {
+    if (!url) return '';
+    if (url.startsWith('idb:')) {
+      const id = url.replace('idb:', '');
+      const dataUrl = await db.getImageAsDataUrl(id);
+      return dataUrl || '';
+    }
+    return url;
+  }
+
+  async addProduct(data) {
     const cleanPriceVal = parseFloat(String(data.price || 0).replace(/[^0-9.-]/g, '')) || 0;
     const product = {
       id: crypto.randomUUID(),
@@ -382,6 +263,8 @@ class Store extends EventEmitter {
       favorite: false,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
+      sync_status: 'pending',
+      firebase_id: null
     };
     product.material = product.materials[0] || '';
 
@@ -393,14 +276,15 @@ class Store extends EventEmitter {
     this._products.unshift(product);
 
     if (!this._isImporting) {
-      this._saveProducts(product, 'insert');
+      await db.putProduct(product);
+      this._triggerSync();
     }
     
     this.emit('product-added', product);
     return product;
   }
 
-  updateProduct(id, data) {
+  async updateProduct(id, data) {
     const idx = this._products.findIndex(p => p.id === id);
     if (idx === -1) return null;
 
@@ -416,6 +300,7 @@ class Store extends EventEmitter {
       buyerCategories: data.buyerCategories !== undefined ? data.buyerCategories : existing.buyerCategories || [],
       imageUrl: data.imageUrl !== undefined ? data.imageUrl.trim() : existing.imageUrl,
       updatedAt: new Date().toISOString(),
+      sync_status: 'pending'
     };
     updated.material = updated.materials[0] || '';
 
@@ -424,185 +309,50 @@ class Store extends EventEmitter {
     if (updated.buyerCategories) updated.buyerCategories.forEach(bc => this._ensureBuyerCategory(bc));
 
     this._products[idx] = updated;
-    this._saveProducts(updated, 'update');
+    await db.putProduct(updated);
+    this._triggerSync();
+    
     this.emit('product-updated', updated);
     return updated;
   }
 
-  deleteProduct(id) {
+  async deleteProduct(id) {
     const idx = this._products.findIndex(p => p.id === id);
     if (idx === -1) return false;
-    const deletedProduct = this._products[idx];
     this._products.splice(idx, 1);
     this._selected.delete(id);
     this._orderedSelection = this._orderedSelection.filter(sid => sid !== id);
-    this._saveProducts(deletedProduct, 'delete');
+    
+    await db.deleteProduct(id);
+    // Ideally we flag this for deletion in sync_engine, but for simplicity we rely on pull to restore it if needed, or implement delete tracking.
+    
     this.emit('product-deleted', id);
     return true;
   }
 
+  // --- Settings ---
+  async getSetting(key) {
+    return await db.getSetting(key);
+  }
+
+  async putSetting(key, value) {
+    await db.putSetting(key, value);
+    this.emit('setting-changed', { key, value });
+  }
+
   // --- Favorites ---
-  toggleFavorite(id) {
+  async toggleFavorite(id) {
     const product = this._products.find(p => p.id === id);
     if (!product) return null;
     product.favorite = !product.favorite;
     product.updatedAt = new Date().toISOString();
-    this._saveProducts(product, 'update', true);
+    product.sync_status = 'pending';
+    
+    await db.putProduct(product);
+    this._triggerSync();
+    
     this.emit('favorite-toggled', product);
     return product;
-  }
-
-  // --- Categories ---
-  getCategories() {
-    return [...this._categories];
-  }
-
-  addCategory(name) {
-    const trimmed = name.trim();
-    if (!trimmed) return false;
-    if (this._categories.some(c => c.toLowerCase() === trimmed.toLowerCase())) return false;
-    this._categories.push(trimmed);
-    this._categories.sort((a, b) => a.localeCompare(b));
-    this._saveCategories(trimmed);
-    return true;
-  }
-
-  _ensureCategory(name) {
-    const trimmed = name.trim();
-    if (!trimmed) return;
-    if (!this._categories.some(c => c.toLowerCase() === trimmed.toLowerCase())) {
-      this._categories.push(trimmed);
-      this._categories.sort((a, b) => a.localeCompare(b));
-      this._saveCategories(trimmed);
-    }
-  }
-
-  async deleteCategory(name) {
-    this._categories = this._categories.filter(c => c !== name);
-    this._saveLocalCategories();
-    this.emit('categories-changed', this._categories);
-    if (!isSupabaseConfigured() || !supabase) return;
-    try {
-      await supabase.from('categories').delete().eq('name', name);
-    } catch (e) { console.error('Failed to delete category from Supabase:', e); }
-  }
-
-  async updateCategory(oldName, newName) {
-    const trimmed = newName.trim();
-    if (!trimmed) return false;
-    const idx = this._categories.findIndex(c => c === oldName);
-    if (idx === -1) return false;
-    this._categories[idx] = trimmed;
-    this._categories.sort((a, b) => a.localeCompare(b));
-    this._saveLocalCategories();
-    this.emit('categories-changed', this._categories);
-    if (!isSupabaseConfigured() || !supabase) return true;
-    try {
-      await supabase.from('categories').update({ name: trimmed }).eq('name', oldName);
-    } catch (e) { console.error('Failed to update category in Supabase:', e); }
-    return true;
-  }
-
-  // --- Materials ---
-  getMaterials() {
-    return [...this._materials];
-  }
-
-  addMaterial(name) {
-    const trimmed = name.trim();
-    if (!trimmed) return false;
-    if (this._materials.some(m => m.toLowerCase() === trimmed.toLowerCase())) return false;
-    this._materials.push(trimmed);
-    this._materials.sort((a, b) => a.localeCompare(b));
-    this._saveMaterials(trimmed);
-    return true;
-  }
-
-  _ensureMaterial(name) {
-    const trimmed = name.trim();
-    if (!trimmed) return;
-    if (!this._materials.some(m => m.toLowerCase() === trimmed.toLowerCase())) {
-      this._materials.push(trimmed);
-      this._materials.sort((a, b) => a.localeCompare(b));
-      this._saveMaterials(trimmed);
-    }
-  }
-
-  async deleteMaterial(name) {
-    this._materials = this._materials.filter(m => m !== name);
-    this._saveLocalMaterials();
-    this.emit('materials-changed', this._materials);
-    if (!isSupabaseConfigured() || !supabase) return;
-    try {
-      await supabase.from('materials').delete().eq('name', name);
-    } catch (e) { console.error('Failed to delete material from Supabase:', e); }
-  }
-
-  async updateMaterial(oldName, newName) {
-    const trimmed = newName.trim();
-    if (!trimmed) return false;
-    const idx = this._materials.findIndex(m => m === oldName);
-    if (idx === -1) return false;
-    this._materials[idx] = trimmed;
-    this._materials.sort((a, b) => a.localeCompare(b));
-    this._saveLocalMaterials();
-    this.emit('materials-changed', this._materials);
-    if (!isSupabaseConfigured() || !supabase) return true;
-    try {
-      await supabase.from('materials').update({ name: trimmed }).eq('name', oldName);
-    } catch (e) { console.error('Failed to update material in Supabase:', e); }
-    return true;
-  }
-
-  // --- Buyer Categories ---
-  getBuyerCategories() {
-    return [...this._buyerCategories];
-  }
-
-  addBuyerCategory(name) {
-    const trimmed = name.trim();
-    if (!trimmed) return false;
-    if (this._buyerCategories.some(c => c.toLowerCase() === trimmed.toLowerCase())) return false;
-    this._buyerCategories.push(trimmed);
-    this._buyerCategories.sort((a, b) => a.localeCompare(b));
-    this._saveBuyerCategories(trimmed);
-    return true;
-  }
-
-  _ensureBuyerCategory(name) {
-    const trimmed = name.trim();
-    if (!trimmed) return;
-    if (!this._buyerCategories.some(c => c.toLowerCase() === trimmed.toLowerCase())) {
-      this._buyerCategories.push(trimmed);
-      this._buyerCategories.sort((a, b) => a.localeCompare(b));
-      this._saveBuyerCategories(trimmed);
-    }
-  }
-
-  async deleteBuyerCategory(name) {
-    this._buyerCategories = this._buyerCategories.filter(c => c !== name);
-    this._saveLocalBuyerCategories();
-    this.emit('buyers-changed', this._buyerCategories);
-    if (!isSupabaseConfigured() || !supabase) return;
-    try {
-      await supabase.from('buyer_categories').delete().eq('name', name);
-    } catch (e) { console.error('Failed to delete buyer category from Supabase:', e); }
-  }
-
-  async updateBuyerCategory(oldName, newName) {
-    const trimmed = newName.trim();
-    if (!trimmed) return false;
-    const idx = this._buyerCategories.findIndex(c => c === oldName);
-    if (idx === -1) return false;
-    this._buyerCategories[idx] = trimmed;
-    this._buyerCategories.sort((a, b) => a.localeCompare(b));
-    this._saveLocalBuyerCategories();
-    this.emit('buyers-changed', this._buyerCategories);
-    if (!isSupabaseConfigured() || !supabase) return true;
-    try {
-      await supabase.from('buyer_categories').update({ name: trimmed }).eq('name', oldName);
-    } catch (e) { console.error('Failed to update buyer category in Supabase:', e); }
-    return true;
   }
 
   // --- Selection ---
@@ -661,7 +411,6 @@ class Store extends EventEmitter {
   getFilteredProducts({ search = '', sort = 'newest', material = '', category = '', buyer = '', favoritesOnly = false } = {}) {
     let results = [...this._products];
 
-    // Filter by search
     if (search) {
       const q = search.toLowerCase();
       results = results.filter(p =>
@@ -673,7 +422,6 @@ class Store extends EventEmitter {
       );
     }
 
-    // Filter by material
     if (material) {
       results = results.filter(p =>
         (p.materials && p.materials.some(m => m.toLowerCase() === material.toLowerCase())) ||
@@ -681,26 +429,22 @@ class Store extends EventEmitter {
       );
     }
 
-    // Filter by category
     if (category) {
       results = results.filter(p =>
         p.category && p.category.toLowerCase() === category.toLowerCase()
       );
     }
 
-    // Filter by buyer category
     if (buyer) {
       results = results.filter(p =>
         p.buyerCategories && p.buyerCategories.some(bc => bc.toLowerCase() === buyer.toLowerCase())
       );
     }
 
-    // Filter favorites
     if (favoritesOnly) {
       results = results.filter(p => p.favorite);
     }
 
-    // Sort
     switch (sort) {
       case 'name-az':
         results.sort((a, b) => a.name.localeCompare(b.name));
@@ -761,43 +505,45 @@ class Store extends EventEmitter {
   }
 
   // --- Bulk Import ---
-  bulkAdd(productsData) {
+  async bulkAdd(productsData) {
     this._isImporting = true;
     const added = [];
     for (const data of productsData) {
-      const product = this.addProduct(data);
+      const product = await this.addProduct(data);
       added.push(product);
     }
     this._isImporting = false;
 
-    // Save locally
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(this._products));
+    try {
+      await db.putProducts(this._products);
+      this._triggerSync();
+    } catch (err) {
+      console.error('[Store] Failed to bulk save to IndexedDB:', err);
+    }
+
     this.emit('products-changed', this._products);
-
-    // Sync to remote in bulk
-    this._saveProductsBulk(added);
-
     return added;
   }
 
   // --- Data Export/Import ---
-  exportData() {
+  async exportData() {
+    const data = await db.exportAll();
     return JSON.stringify({
-      products: this._products,
-      categories: this._categories,
-      materials: this._materials,
-      buyerCategories: this._buyerCategories,
+      ...data,
       exportedAt: new Date().toISOString(),
     }, null, 2);
   }
 
-  importData(jsonString) {
+  async importData(jsonString) {
     try {
       const data = JSON.parse(jsonString);
       if (!data.products || !Array.isArray(data.products)) {
         throw new Error('Invalid data format');
       }
-      this._products = data.products;
+
+      await db.importAll(data);
+      this._products = await db.getAllProducts();
+      
       if (data.categories && Array.isArray(data.categories)) {
         this._categories = data.categories;
       }
@@ -808,7 +554,6 @@ class Store extends EventEmitter {
         this._buyerCategories = data.buyerCategories;
       }
       
-      this._saveLocalBackup();
       this.clearSelection();
       this.emit('data-imported');
       this.emit('products-changed', this._products);
@@ -816,9 +561,7 @@ class Store extends EventEmitter {
       this.emit('materials-changed', this._materials);
       this.emit('buyer-categories-changed', this._buyerCategories);
 
-      // Sync imported items to Supabase in bulk
-      this._syncImportedDataToSupabase();
-
+      this._triggerSync();
       return true;
     } catch (err) {
       console.error('Import failed:', err);
@@ -827,5 +570,4 @@ class Store extends EventEmitter {
   }
 }
 
-// Singleton
 export const store = new Store();

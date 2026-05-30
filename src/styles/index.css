@@ -42,6 +42,8 @@
   --color-warning-subtle: rgba(196, 133, 60, 0.1);
   --color-danger: #A63D40;
   --color-danger-subtle: rgba(166, 61, 64, 0.1);
+  --bg-danger: #fef2f2;
+  --border-danger: #fecaca;
 
   /* Shadows */
   --shadow-xs: 0 1px 2px rgba(45, 31, 27, 0.03);
@@ -109,6 +111,16 @@
   --text-body: #bdc1c6;
   --text-secondary: #9aa0a6;
   --text-muted: #80868b;
+
+  /* Status for dark mode */
+  --color-success: #81c995;
+  --color-success-subtle: rgba(129, 201, 149, 0.15);
+  --color-warning: #fde293;
+  --color-warning-subtle: rgba(253, 226, 147, 0.15);
+  --color-danger: #f28b82;
+  --color-danger-subtle: rgba(242, 139, 130, 0.15);
+  --bg-danger: rgba(242, 139, 130, 0.1);
+  --border-danger: rgba(242, 139, 130, 0.3);
 
   /* Borders */
   --border: #3c4043;

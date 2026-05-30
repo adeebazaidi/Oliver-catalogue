@@ -10,6 +10,7 @@ import { showConfirm } from '../components/confirm-dialog.js';
 import { showToast } from '../components/toast.js';
 import { renderCategorySelector } from '../components/category-selector.js';
 import { compressImage } from '../utils/image-loader.js';
+import { formatPrice } from '../utils/currency.js';
 
 let isEditing = false;
 
@@ -75,14 +76,15 @@ function renderViewMode(container, product) {
         <!-- Left Column: Image & Metadata -->
         <div class="product-detail-layout__left">
           <div class="product-detail-layout__image-container">
-            ${product.imageUrl ? `
-              <img src="${product.imageUrl}" alt="${product.name}" onerror="this.parentElement.innerHTML='<div class=\\'product-detail-layout__image-placeholder\\'><div style=\\'font-family:var(--font-heading);font-size:3rem;color:var(--color-cream);margin-bottom:var(--space-md);\\'>${initials}</div>No image found</div>'">
-            ` : `
-              <div class="product-detail-layout__image-placeholder">
+            ${product.imageUrl && !product.imageUrl.startsWith('idb:')
+              ? `<img src="${product.imageUrl}" alt="${product.name}" onerror="this.parentElement.innerHTML='<div class=\'product-detail-layout__image-placeholder\'><div style=\'font-family:var(--font-heading);font-size:3rem;color:var(--color-cream);margin-bottom:var(--space-md);\'>${initials}</div>No image found</div>'">`
+              : product.imageUrl && product.imageUrl.startsWith('idb:')
+                ? `<img id="detail-idb-image" alt="${product.name}" style="display:none;"><div id="detail-idb-placeholder" class="product-detail-layout__image-placeholder"><div style="font-family:var(--font-heading);font-size:3rem;color:var(--color-cream);margin-bottom:var(--space-md);">${initials}</div>Loading...</div>`
+                : `<div class="product-detail-layout__image-placeholder">
                 <div style="font-family:var(--font-heading);font-size:3rem;color:var(--color-cream);margin-bottom:var(--space-md);">${initials}</div>
                 No image provided
-              </div>
-            `}
+              </div>`
+            }
           </div>
 
           <div class="product-detail-layout__metadata">
@@ -100,7 +102,7 @@ function renderViewMode(container, product) {
                 <div class="product-detail__field" style="padding: 4px 0;">
                   <div class="product-detail__field-label" style="margin-bottom: 2px;">Price</div>
                   <div class="product-detail__field-value" style="color:var(--color-primary);font-size:1.4rem;font-family:var(--font-heading);font-weight:700;">
-                    $${product.price.toLocaleString('en-US')}
+                    ${formatPrice(product.price)}
                   </div>
                 </div>
                 <div class="product-detail__field" style="padding: 4px 0;">
@@ -132,7 +134,7 @@ function renderViewMode(container, product) {
               </div>
             </div>
 
-            ${product.imageUrl ? `
+            ${product.imageUrl && !product.imageUrl.startsWith('idb:') ? `
               <div class="card" style="padding: var(--space-md); margin-bottom: 0;">
                 <div class="product-detail__field" style="padding: 0;">
                   <div class="product-detail__field-label" style="margin-bottom: 2px;">Image URL</div>
@@ -141,12 +143,34 @@ function renderViewMode(container, product) {
                   </div>
                 </div>
               </div>
+            ` : product.imageUrl && product.imageUrl.startsWith('idb:') ? `
+              <div class="card" style="padding: var(--space-md); margin-bottom: 0;">
+                <div class="product-detail__field" style="padding: 0;">
+                  <div class="product-detail__field-label" style="margin-bottom: 2px;">Image</div>
+                  <div class="product-detail__field-value text-sm" style="color:var(--text-secondary);font-size:0.8rem;">Stored locally (IndexedDB)</div>
+                </div>
+              </div>
             ` : ''}
           </div>
         </div>
       </div>
     </div>
   `;
+
+  // Load idb image if needed (view mode)
+  if (product.imageUrl && product.imageUrl.startsWith('idb:')) {
+    store.resolveImageUrl(product.imageUrl).then(dataUrl => {
+      const img = document.getElementById('detail-idb-image');
+      const placeholder = document.getElementById('detail-idb-placeholder');
+      if (img && dataUrl) {
+        img.src = dataUrl;
+        img.style.display = '';
+        if (placeholder) placeholder.style.display = 'none';
+      } else if (placeholder) {
+        placeholder.innerHTML = `<div style="font-family:var(--font-heading);font-size:3rem;color:var(--color-cream);margin-bottom:var(--space-md);">${initials}</div>No image found`;
+      }
+    });
+  }
 
   // Favorite toggle
   document.getElementById('detail-star').addEventListener('click', () => {
@@ -214,20 +238,27 @@ function renderEditMode(container, product) {
         <!-- Left Column: Image editing -->
         <div class="product-detail-layout__left">
           <div class="product-detail-layout__image-container" id="edit-image-preview" style="cursor: pointer; border: 2px dashed var(--border); transition: border-color 0.2s;">
-            ${product.imageUrl
+            ${product.imageUrl && !product.imageUrl.startsWith('idb:')
               ? `<img src="${product.imageUrl}" alt="Preview">
                  <input type="file" id="edit-image-file" accept="image/*" style="opacity: 0; position: absolute; inset: 0; width: 100%; height: 100%; cursor: pointer;">`
-              : `<div class="product-detail-layout__image-placeholder" style="pointer-events: none;">
-                   ${icons.image}
-                   <div style="font-weight:600;margin-top:8px;">Drag & Drop Image</div>
-                   <div style="font-size:0.75rem;color:var(--text-muted);">or click to browse</div>
-                 </div>
-                 <input type="file" id="edit-image-file" accept="image/*" style="opacity: 0; position: absolute; inset: 0; width: 100%; height: 100%; cursor: pointer;">`}
+              : product.imageUrl && product.imageUrl.startsWith('idb:')
+                ? `<img id="edit-idb-image" alt="Preview" style="display:none;">
+                   <div id="edit-idb-placeholder" class="product-detail-layout__image-placeholder" style="pointer-events: none;">
+                     ${icons.image}
+                     <div style="font-weight:600;margin-top:8px;">Loading image...</div>
+                   </div>
+                   <input type="file" id="edit-image-file" accept="image/*" style="opacity: 0; position: absolute; inset: 0; width: 100%; height: 100%; cursor: pointer;">`
+                : `<div class="product-detail-layout__image-placeholder" style="pointer-events: none;">
+                     ${icons.image}
+                     <div style="font-weight:600;margin-top:8px;">Drag & Drop Image</div>
+                     <div style="font-size:0.75rem;color:var(--text-muted);">or click to browse</div>
+                   </div>
+                   <input type="file" id="edit-image-file" accept="image/*" style="opacity: 0; position: absolute; inset: 0; width: 100%; height: 100%; cursor: pointer;">`}
           </div>
 
           <div class="form-group" style="margin-bottom: 0; width: 100%;">
             <label class="form-label" for="edit-image" style="font-size: 0.8rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-secondary); margin-bottom: 4px;">Or Image URL</label>
-            <input type="text" class="form-input" id="edit-image" value="${product.imageUrl}" placeholder="https://example.com/image.jpg" style="padding: 8px 12px; font-size: 0.85rem;">
+            <input type="text" class="form-input" id="edit-image" value="${product.imageUrl && product.imageUrl.startsWith('idb:') ? '' : product.imageUrl}" placeholder="https://example.com/image.jpg" style="padding: 8px 12px; font-size: 0.85rem;">
           </div>
         </div>
 
@@ -284,6 +315,19 @@ function renderEditMode(container, product) {
   renderCategorySelector('edit-buyers', editBuyers, (buyers) => {
     editBuyers = buyers;
   }, 'buyers');
+
+  // Load idb image if needed (edit mode)
+  if (product.imageUrl && product.imageUrl.startsWith('idb:')) {
+    store.resolveImageUrl(product.imageUrl).then(dataUrl => {
+      const img = document.getElementById('edit-idb-image');
+      const placeholder = document.getElementById('edit-idb-placeholder');
+      if (img && dataUrl) {
+        img.src = dataUrl;
+        img.style.display = '';
+        if (placeholder) placeholder.style.display = 'none';
+      }
+    });
+  }
 
   // Image preview & Drag-and-drop
   const imgInput = document.getElementById('edit-image');

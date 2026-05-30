@@ -25,14 +25,15 @@ export default defineConfig({
         background_color: '#f8fafc',
         icons: [
           {
-            src: 'https://via.placeholder.com/192x192.png?text=Catalogue',
+            src: '/icons/icon-192x192.png',
             sizes: '192x192',
             type: 'image/png'
           },
           {
-            src: 'https://via.placeholder.com/512x512.png?text=Catalogue',
+            src: '/icons/icon-512x512.png',
             sizes: '512x512',
-            type: 'image/png'
+            type: 'image/png',
+            purpose: 'any maskable'
           }
         ]
       }

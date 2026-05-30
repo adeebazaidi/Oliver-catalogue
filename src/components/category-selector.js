@@ -44,18 +44,6 @@ export function renderCategorySelector(containerId, selectedItem = [], onChange,
             `;
           }).join('')}
         </div>
-        <div class="category-add" style="display:flex;gap:8px;margin-top:10px;">
-          <input 
-            type="text" 
-            class="form-input" 
-            id="${containerId}-new-input" 
-            placeholder="${placeholder}"
-            style="flex:1;padding:8px 12px;font-size:0.85rem;"
-          >
-          <button type="button" class="btn btn-secondary btn-sm" id="${containerId}-add-btn">
-            ${icons.plus} Add
-          </button>
-        </div>
       </div>
     `;
 
@@ -80,46 +68,6 @@ export function renderCategorySelector(containerId, selectedItem = [], onChange,
           if (onChange) onChange([...selection]);
         }
       });
-    });
-
-    // Add new item
-    const addBtn = document.getElementById(`${containerId}-add-btn`);
-    const addInput = document.getElementById(`${containerId}-new-input`);
-
-    const doAdd = () => {
-      const val = addInput.value.trim();
-      if (!val) return;
-
-      if (type === 'materials') {
-        store.addMaterial(val);
-      } else if (type === 'buyers') {
-        store.addBuyerCategory(val);
-      } else {
-        store.addCategory(val);
-      }
-
-      if (isSingle) {
-        selection = val;
-        render();
-        if (onChange) onChange(selection);
-      } else {
-        if (!selection.includes(val)) {
-          selection.push(val);
-        }
-        render();
-        if (onChange) onChange([...selection]);
-      }
-    };
-
-    addBtn.addEventListener('click', (e) => {
-      e.preventDefault();
-      doAdd();
-    });
-    addInput.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter') {
-        e.preventDefault();
-        doAdd();
-      }
     });
   }
 

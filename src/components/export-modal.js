@@ -6,7 +6,6 @@
 import { store } from '../store.js';
 import { icons } from '../icons.js';
 import { showToast } from './toast.js';
-import ExportWorker from '../workers/export.worker.js?worker';
 import { saveAs } from 'file-saver';
 
 let currentStep = 1;
@@ -115,13 +114,9 @@ function renderStepContent() {
             <label class="form-label">Subtitle (Optional)</label>
             <input type="text" class="form-input" id="cover-subtitle" value="${coverInfo.subtitle}" placeholder="e.g., Premium Home Furnishings">
           </div>
-          <div class="form-group">
+          <div class="form-group" style="margin-bottom: var(--space-xl);">
             <label class="form-label">Date</label>
             <input type="date" class="form-input" id="cover-date" value="${coverInfo.date}">
-          </div>
-          <div class="form-group" style="margin-bottom: var(--space-xl);">
-            <label class="form-label">Company Name (Optional)</label>
-            <input type="text" class="form-input" id="cover-company" value="${coverInfo.companyName}" placeholder="Your Company Name">
           </div>
           
           <!-- Back & Next buttons shifted upwards -->
@@ -136,7 +131,7 @@ function renderStepContent() {
             <div class="cover-preview__title">${coverInfo.title || 'Catalogue Title'}</div>
             ${coverInfo.subtitle ? `<div class="cover-preview__subtitle">${coverInfo.subtitle}</div>` : ''}
             <div class="cover-preview__meta">
-              ${coverInfo.companyName ? `${coverInfo.companyName} · ` : ''}${coverInfo.date}
+              Oliver McInroy & Co. · ${coverInfo.date}
               <br>${orderedProducts.length} Products
             </div>
           </div>
@@ -149,20 +144,20 @@ function renderStepContent() {
       coverInfo.title = document.getElementById('cover-title').value;
       coverInfo.subtitle = document.getElementById('cover-subtitle').value;
       coverInfo.date = document.getElementById('cover-date').value;
-      coverInfo.companyName = document.getElementById('cover-company').value;
+      coverInfo.companyName = 'Oliver McInroy & Co.';
 
       const preview = document.getElementById('cover-preview');
       preview.innerHTML = `
         <div class="cover-preview__title">${coverInfo.title || 'Catalogue Title'}</div>
         ${coverInfo.subtitle ? `<div class="cover-preview__subtitle">${coverInfo.subtitle}</div>` : '<div class="cover-preview__subtitle" style="opacity:0.3">Subtitle</div>'}
         <div class="cover-preview__meta">
-          ${coverInfo.companyName ? `${coverInfo.companyName} · ` : ''}${coverInfo.date}
+          Oliver McInroy & Co. · ${coverInfo.date}
           <br>${orderedProducts.length} Products
         </div>
       `;
     };
 
-    ['cover-title', 'cover-subtitle', 'cover-date', 'cover-company'].forEach(id => {
+    ['cover-title', 'cover-subtitle', 'cover-date'].forEach(id => {
       document.getElementById(id).addEventListener('input', updatePreview);
     });
 
@@ -221,7 +216,7 @@ function renderStepContent() {
       coverInfo.title = document.getElementById('cover-title').value || 'Product Catalogue';
       coverInfo.subtitle = document.getElementById('cover-subtitle').value;
       coverInfo.date = document.getElementById('cover-date').value;
-      coverInfo.companyName = document.getElementById('cover-company').value;
+      coverInfo.companyName = 'Oliver McInroy & Co.';
     }
     currentStep++;
     renderModal();
@@ -287,45 +282,50 @@ function handleExport(format) {
   progressFill.style.width = '20%';
   progressText.textContent = `Generating ${format.toUpperCase()}...`;
 
-  const worker = new ExportWorker();
+  // Run on main thread to avoid 'window is not defined' in libraries like pptxgenjs
+  setTimeout(async () => {
+    try {
+      progressFill.style.width = '50%';
+      let result = null;
 
-  worker.onmessage = (e) => {
-    const { success, blob, fileName, error } = e.data;
-    if (success) {
-      progressFill.style.width = '100%';
-      progressText.textContent = 'Done! File downloaded.';
-      
-      saveAs(blob, fileName);
+      if (format === 'pdf') {
+        const { generatePDF } = await import('../generators/pdf-generator.js');
+        result = await generatePDF(orderedProducts, coverInfo);
+      } else if (format === 'ppt') {
+        const { generatePPT } = await import('../generators/ppt-generator.js');
+        result = await generatePPT(orderedProducts, coverInfo);
+      } else if (format === 'excel') {
+        const { generateExcel } = await import('../generators/excel-generator.js');
+        result = await generateExcel(orderedProducts, coverInfo);
+      }
 
-      showToast({
-        type: 'success',
-        title: 'Catalogue Generated',
-        message: `Your ${format.toUpperCase()} catalogue has been downloaded.`,
-      });
+      if (result && result.blob) {
+        progressFill.style.width = '100%';
+        progressText.textContent = 'Done! File downloaded.';
+        
+        saveAs(result.blob, result.fileName);
 
-      setTimeout(closeModal, 1500);
-    } else {
-      console.error('Export failed:', error);
+        showToast({
+          type: 'success',
+          title: 'Catalogue Generated',
+          message: `Your ${format.toUpperCase()} catalogue has been downloaded.`,
+        });
+
+        setTimeout(closeModal, 1500);
+      } else {
+        throw new Error('Generator did not return a valid file blob.');
+      }
+    } catch (err) {
+      console.error('Export failed:', err);
       progressText.textContent = 'Export failed. Please try again.';
       progressFill.style.background = 'var(--color-danger)';
       showToast({
         type: 'error',
         title: 'Export Failed',
-        message: error,
+        message: err.message || 'An unknown error occurred.',
       });
     }
-    worker.terminate();
-  };
-
-  worker.onerror = (err) => {
-    console.error('Worker error:', err);
-    progressText.textContent = 'Worker failed to start or crashed.';
-    progressFill.style.background = 'var(--color-danger)';
-    worker.terminate();
-  };
-
-  progressFill.style.width = '50%';
-  worker.postMessage({ format, orderedProducts, coverInfo });
+  }, 50);
 }
 
 function closeModal() {

@@ -2,7 +2,7 @@ import { store } from '../store.js';
 import { icons } from '../icons.js';
 import { showToast } from './toast.js';
 import { router } from '../router.js';
-import { hashPassword, PASSWORD_HASH } from '../auth/gate.js';
+import { getCurrencySymbol, setCurrencySymbol } from '../utils/currency.js';
 
 export function showSettingsModal() {
   const container = document.getElementById('modal-container');
@@ -66,11 +66,12 @@ export function showSettingsModal() {
     renderTabUpdates();
   };
 
-  const renderTabUpdates = () => {
+  const renderTabUpdates = async () => {
     // 1. Update Sidebar Tabs
     const tabsContainer = document.getElementById('settings-sidebar-tabs');
     const tabs = [
       { id: 'filters', icon: icons.filter, label: 'Manage Filters' },
+      { id: 'template', icon: icons.layout, label: 'PPT Template' },
       { id: 'data', icon: icons.database, label: 'Data & Backup' },
       { id: 'appearance', icon: icons.layout, label: 'Appearance' },
       { id: 'defaults', icon: icons.settings, label: 'Defaults' }
@@ -79,7 +80,7 @@ export function showSettingsModal() {
     tabsContainer.innerHTML = tabs.map(t => {
       const isActive = currentTab === t.id;
       return `
-        <button class="settings-tab ${isActive ? 'active' : ''}" data-tab="${t.id}" style="display:flex; align-items:center; gap:12px; padding: 10px 14px; border:none; background: ${isActive ? 'white' : 'transparent'}; border-radius: var(--radius-md); text-align:left; cursor:pointer; font-weight: ${isActive ? '600' : '500'}; color: ${isActive ? 'var(--text-primary)' : 'var(--text-secondary)'}; box-shadow: ${isActive ? 'var(--shadow-sm)' : 'none'}; transition: all 0.2s;">
+        <button class="settings-tab ${isActive ? 'active' : ''}" data-tab="${t.id}" style="display:flex; align-items:center; gap:12px; padding: 10px 14px; border:none; background: ${isActive ? 'var(--bg-elevated)' : 'transparent'}; border-radius: var(--radius-md); text-align:left; cursor:pointer; font-weight: ${isActive ? '600' : '500'}; color: ${isActive ? 'var(--text-primary)' : 'var(--text-secondary)'}; box-shadow: ${isActive ? 'var(--shadow-sm)' : 'none'}; transition: all 0.2s;">
           <span style="opacity: ${isActive ? '1' : '0.6'}; display:flex;">${t.icon}</span> ${t.label}
         </button>
       `;
@@ -90,7 +91,7 @@ export function showSettingsModal() {
 
     // 3. Update Content
     const contentArea = document.getElementById('settings-content-area');
-    contentArea.innerHTML = renderTabContent(currentTab);
+    contentArea.innerHTML = await renderTabContent(currentTab);
 
     // 4. Attach Content Listeners
     attachContentListeners();
@@ -99,6 +100,7 @@ export function showSettingsModal() {
   const getTabTitle = (tab) => {
     switch (tab) {
       case 'filters': return 'Manage Filters';
+      case 'template': return 'PPT Template';
       case 'data': return 'Data & Backup';
       case 'appearance': return 'Appearance';
       case 'defaults': return 'Defaults';
@@ -106,7 +108,7 @@ export function showSettingsModal() {
     }
   };
 
-  const renderTabContent = (tab) => {
+  const renderTabContent = async (tab) => {
     if (tab === 'filters') {
       return `
         <div style="display:flex; flex-direction:column; gap: var(--space-xl);">
@@ -114,6 +116,40 @@ export function showSettingsModal() {
           ${renderFilterSection('Categories', store.getCategories(), 'category')}
           ${renderFilterSection('Materials', store.getMaterials(), 'material')}
           ${renderFilterSection('Buyer Categories', store.getBuyerCategories(), 'buyer')}
+        </div>
+      `;
+    }
+
+    if (tab === 'template') {
+      const template = await store.getSetting('ppt_template') || {};
+      const primaryColor = template.primaryColor || '#0A0F1D';
+      const accentColor = template.accentColor || '#D4AF37';
+      const aboutUsText = template.aboutUsText || "Oliver McInroy was established in 1992 as a handcrafted metal home décor manufacturer. Working with equal ease in most metals like Brass, Aluminum, Stainless steel, and Iron. Lighting, Accent Furniture, Wall Pieces, Decorative Hardware, and Sculptures.\\n\\nOur business is run by two business partners who have 3-decades experience in this field. We have two large factories having about a 100000 sq ft covered area in the city of Moradabad.";
+
+      return `
+        <div style="display:flex; flex-direction:column; gap: var(--space-xl);">
+          <p class="text-muted text-sm" style="margin-top: 0;">Customize the master template used when exporting PowerPoint files.</p>
+          
+          <div class="card" style="padding: var(--space-md); border: 1px solid var(--border-subtle); box-shadow: var(--shadow-xs);">
+            <h4 style="margin:0 0 12px 0; font-size: 1.05rem;">Brand Colors</h4>
+            <div style="display:flex; gap:24px;">
+              <div>
+                <label class="form-label">Primary Background</label>
+                <input type="color" id="ppt-color-primary" value="${primaryColor}" style="width: 100px; height: 40px; cursor: pointer; border: 1px solid var(--border-subtle); border-radius: var(--radius-md);">
+              </div>
+              <div>
+                <label class="form-label">Accent / Gold Line</label>
+                <input type="color" id="ppt-color-accent" value="${accentColor}" style="width: 100px; height: 40px; cursor: pointer; border: 1px solid var(--border-subtle); border-radius: var(--radius-md);">
+              </div>
+            </div>
+          </div>
+
+          <div class="card" style="padding: var(--space-md); border: 1px solid var(--border-subtle); box-shadow: var(--shadow-xs);">
+            <h4 style="margin:0 0 12px 0; font-size: 1.05rem;">Cover Info</h4>
+            <p class="text-muted text-sm" style="margin-top: 0;">Configure your presentation's primary details.</p>
+          </div>
+          
+          <button id="btn-save-ppt-template" class="btn btn-primary" style="align-self:flex-end;">Save Settings</button>
         </div>
       `;
     }
@@ -148,15 +184,15 @@ export function showSettingsModal() {
             </div>
           </div>
           
-          <div class="card" style="padding: var(--space-md); border: 1px solid #fecaca; background: #fef2f2; box-shadow: var(--shadow-xs);">
+          <div class="card" style="padding: var(--space-md); border: 1px solid var(--border-danger); background: var(--bg-danger); box-shadow: var(--shadow-xs);">
             <div style="display: flex; gap: var(--space-md); align-items: flex-start;">
-              <div style="padding: 8px; background: #fee2e2; border-radius: var(--radius-md); color: #dc2626;">
+              <div style="padding: 8px; background: var(--color-danger-subtle); border-radius: var(--radius-md); color: var(--color-danger);">
                 ${icons.trash}
               </div>
               <div style="flex: 1;">
-                <h4 style="margin: 0 0 4px 0; font-size: 1.05rem; color: #991b1b;">Reset App</h4>
-                <p class="text-sm" style="margin: 0 0 8px 0; color: #b91c1c; line-height: 1.4;">Clear all local data and reset the application to its default state. This action cannot be undone.</p>
-                <button class="btn btn-sm" style="background:#dc2626; color:white; border:none; font-weight: 600;" id="btn-clear-data">Reset Local Data</button>
+                <h4 style="margin: 0 0 4px 0; font-size: 1.05rem; color: var(--color-danger);">Reset App</h4>
+                <p class="text-sm" style="margin: 0 0 8px 0; color: var(--color-danger); opacity: 0.9; line-height: 1.4;">Clear all local data and reset the application to its default state. This action cannot be undone.</p>
+                <button class="btn btn-sm" style="background:var(--color-danger); color:var(--bg-page); border:none; font-weight: 600;" id="btn-clear-data">Reset Local Data</button>
               </div>
             </div>
           </div>
@@ -187,6 +223,7 @@ export function showSettingsModal() {
     }
 
     if (tab === 'defaults') {
+      const cur = getCurrencySymbol();
       return `
         <div style="display:flex; flex-direction:column; gap: var(--space-lg);">
           <div class="card" style="padding: var(--space-lg); border: 1px solid var(--border-subtle); box-shadow: var(--shadow-xs);">
@@ -194,13 +231,12 @@ export function showSettingsModal() {
             <p class="text-sm text-muted" style="margin: 0 0 16px 0;">Sets the default currency symbol used across the app.</p>
             <div class="form-group" style="max-width:240px; margin: 0;">
               <select class="form-input" id="setting-currency" style="padding: 10px 14px; font-size: 0.95rem; cursor: pointer;">
-                <option value="$">$ (USD)</option>
-                <option value="€">€ (EUR)</option>
-                <option value="£">£ (GBP)</option>
-                <option value="₹">₹ (INR)</option>
+                <option value="$" ${cur === '$' ? 'selected' : ''}>$ (USD)</option>
+                <option value="€" ${cur === '€' ? 'selected' : ''}>€ (EUR)</option>
+                <option value="£" ${cur === '£' ? 'selected' : ''}>£ (GBP)</option>
+                <option value="₹" ${cur === '₹' ? 'selected' : ''}>₹ (INR)</option>
               </select>
             </div>
-            <p class="text-xs text-muted" style="margin-top:12px; font-style: italic;">* Currently hardcoded to $. Fully dynamic currency formats coming soon.</p>
           </div>
         </div>
       `;
@@ -233,6 +269,25 @@ export function showSettingsModal() {
   };
 
   const attachContentListeners = () => {
+    // PPT Template Tab Listeners
+    if (currentTab === 'template') {
+      document.getElementById('btn-save-ppt-template').addEventListener('click', async () => {
+        const primaryColor = document.getElementById('ppt-color-primary').value;
+        const accentColor = document.getElementById('ppt-color-accent').value;
+        
+        const existingTemplate = await store.getSetting('ppt_template') || {};
+        
+        const newTemplate = {
+          ...existingTemplate,
+          primaryColor,
+          accentColor
+        };
+
+        await store.putSetting('ppt_template', newTemplate);
+        showToast({ type: 'success', title: 'Template Saved', message: 'Your PPT Template preferences have been saved.' });
+      });
+    }
+
     // Data Tab Listeners
     if (currentTab === 'data') {
       document.getElementById('btn-export-data').addEventListener('click', () => {
@@ -272,15 +327,17 @@ export function showSettingsModal() {
 
       document.getElementById('btn-clear-data').addEventListener('click', async () => {
         if (confirm("Are you sure you want to permanently delete all local data? This will clear all products, categories, and settings from your browser.")) {
-          const pass = prompt("Enter the application password to confirm reset:");
-          if (!pass) return;
-          const hash = await hashPassword(pass);
-          if (hash === PASSWORD_HASH) {
-            localStorage.clear();
+          // Clear localStorage themes/settings
+          localStorage.clear();
+          
+          // Clear IndexedDB completely
+          const req = indexedDB.deleteDatabase('CatalogueGenDB');
+          req.onsuccess = () => {
             location.reload();
-          } else {
-            showToast({ type: 'error', title: 'Reset Failed', message: 'Incorrect password.' });
-          }
+          };
+          req.onerror = () => {
+            showToast({ type: 'error', title: 'Reset Failed', message: 'Could not delete database.' });
+          };
         }
       });
     }
@@ -344,6 +401,14 @@ export function showSettingsModal() {
           }
           renderTabUpdates(); // To update the border styling on the selected label
         });
+      });
+    }
+
+    // Defaults Tab Listeners
+    if (currentTab === 'defaults') {
+      document.getElementById('setting-currency').addEventListener('change', (e) => {
+        setCurrencySymbol(e.target.value);
+        showToast({ type: 'success', title: 'Currency Updated', message: 'The currency format has been saved.' });
       });
     }
   };

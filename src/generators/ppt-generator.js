@@ -1,189 +1,237 @@
 // =============================================
-// CatalogueGen — PowerPoint Generator
+// CatalogueGen — Premium PowerPoint Generator
 // =============================================
 
 import PptxGenJS from 'pptxgenjs';
-import { fetchImageAsBase64 } from '../utils/image-loader.js';
+import { fetchImageAsBase64, fetchImageWithDimensions } from '../utils/image-loader.js';
+import { formatPrice } from '../utils/currency.js';
+import { store } from '../store.js';
 
 export async function generatePPT(products, coverInfo) {
   const pres = new PptxGenJS();
+  pres.layout = 'LAYOUT_16x9';
 
-  // Brand colors
-  const wine = '1E3A8A';
-  const wineDark = '1E40AF';
-  const beige = 'FFFFFF';
-  const cream = 'F8FAFC';
-  const textDark = '0F172A';
-  const textBody = '334155';
-  const gold = '3B82F6';
+  // Fetch Custom Template Settings (if any left over)
+  const template = await store.getSetting('ppt_template') || {};
+
+  // Premium Brand Colors (Fixed)
+  const navy = '050A30';      
+  const gold = 'D4AF37';      
   const white = 'FFFFFF';
+  const textBody = 'E2E8F0';
+  const textDark = '0F172A';
 
   // Presentation metadata
-  pres.author = coverInfo.companyName || 'Oliver Mc Inroy Catalogue';
+  pres.author = 'Oliver McInroy & Co.';
   pres.subject = coverInfo.title || 'Product Catalogue';
   pres.title = coverInfo.title || 'Product Catalogue';
 
-  // Define slide layouts
+  // ==========================================
+  // MASTER SLIDES
+  // ==========================================
+
+  // Dark Master for static info slides
   pres.defineSlideMaster({
-    title: 'PRODUCT_SLIDE',
-    background: { color: beige },
+    title: 'MASTER_DARK',
+    background: { color: navy },
     objects: [
-      // Top wine bar
-      { rect: { x: 0, y: 0, w: '100%', h: 0.5, fill: { color: wine } } },
-      // Bottom bar
-      { rect: { x: 0, y: 7.0, w: '100%', h: 0.5, fill: { color: wine } } },
+      // Top gold accent line
+      { rect: { x: 0, y: 0, w: '100%', h: 0.05, fill: { color: gold } } },
+      // Footer text
+      { text: { text: 'Oliver McInroy & Co.', options: { x: 0.5, y: 7.2, w: 4, h: 0.2, color: '475569', fontSize: 10, fontFace: 'Georgia' } } },
+      { text: { text: 'Handcrafted Metal Home Décor', options: { x: 5.5, y: 7.2, w: 4, h: 0.2, color: '475569', fontSize: 10, align: 'right', fontFace: 'Arial' } } }
     ],
   });
 
-  // ---- Title Slide ----
-  const titleSlide = pres.addSlide();
-  titleSlide.background = { color: wine };
-
-  // Gold decorative line
-  titleSlide.addShape(pres.ShapeType.line, {
-    x: 2.5, y: 2.3, w: 5, h: 0,
-    line: { color: gold, width: 2 },
+  // Split Master for products
+  pres.defineSlideMaster({
+    title: 'MASTER_PRODUCT',
+    background: { color: white },
+    objects: [
+      // Right side dark panel
+      { rect: { x: '50%', y: 0, w: '50%', h: '100%', fill: { color: navy } } },
+      // Vertical gold separator line
+      { rect: { x: '50%', y: 0, w: 0.05, h: '100%', fill: { color: gold } } },
+      // Footer inside dark panel
+      { text: { text: 'Oliver McInroy & Co.', options: { x: '55%', y: 7.2, w: 4, h: 0.2, color: '475569', fontSize: 10, fontFace: 'Georgia' } } }
+    ],
   });
 
-  // Title
-  titleSlide.addText(coverInfo.title || 'Product Catalogue', {
-    x: 0.5, y: 2.5, w: 9, h: 1.2,
-    fontSize: 36,
-    fontFace: 'Georgia',
-    color: white,
-    bold: true,
-    align: 'center',
-  });
-
-  // Subtitle
-  if (coverInfo.subtitle) {
-    titleSlide.addText(coverInfo.subtitle, {
-      x: 0.5, y: 3.6, w: 9, h: 0.6,
-      fontSize: 18,
-      fontFace: 'Arial',
-      color: 'E8DCC8',
-      align: 'center',
+  // ==========================================
+  // SLIDE 1: COVER
+  // ==========================================
+  const slideCover = pres.addSlide({ masterName: 'MASTER_DARK' });
+  
+  if (template.coverImage) {
+    slideCover.addImage({ data: template.coverImage, x: 0, y: 0, w: '100%', h: '100%' });
+  } else {
+    slideCover.addText('Oliver McInroy & Co.', {
+      x: 0, y: 1.8, w: '100%', h: 1.0, align: 'center', fontSize: 54, fontFace: 'Georgia', color: white, bold: true
     });
-  }
-
-  // Gold line below
-  titleSlide.addShape(pres.ShapeType.line, {
-    x: 2.5, y: 4.5, w: 5, h: 0,
-    line: { color: gold, width: 2 },
-  });
-
-  // Meta
-  const metaParts = [];
-  if (coverInfo.companyName) metaParts.push(coverInfo.companyName);
-  if (coverInfo.date) metaParts.push(coverInfo.date);
-  metaParts.push(`${products.length} Products`);
-
-  titleSlide.addText(metaParts.join('  ·  '), {
-    x: 0.5, y: 5.0, w: 9, h: 0.5,
-    fontSize: 12,
-    fontFace: 'Arial',
-    color: 'B5A89F',
-    align: 'center',
-  });
-
-  // ---- Product Slides ----
-  for (let idx = 0; idx < products.length; idx++) {
-    const product = products[idx];
-    const slide = pres.addSlide({ masterName: 'PRODUCT_SLIDE' });
-
-    // Product counter in top bar
-    slide.addText(`Product ${idx + 1} of ${products.length}`, {
-      x: 0.3, y: 0.05, w: 4, h: 0.4,
-      fontSize: 9,
-      fontFace: 'Arial',
-      color: white,
+    slideCover.addShape(pres.ShapeType.line, {
+      x: '40%', y: 2.8, w: '20%', h: 0, line: { color: gold, width: 2 }
     });
-
-    // Catalogue title in top bar
-    slide.addText(coverInfo.title || 'Product Catalogue', {
-      x: 5.5, y: 0.05, w: 4.2, h: 0.4,
-      fontSize: 9,
-      fontFace: 'Arial',
-      color: white,
-      align: 'right',
+    slideCover.addText('EXCLUSIVE PRODUCT COLLECTION', {
+      x: 0, y: 3.2, w: '100%', h: 0.5, align: 'center', fontSize: 16, fontFace: 'Arial', color: gold, letterSpacing: 4
     });
-
-    // Product name
-    slide.addText(product.name, {
-      x: 0.7, y: 0.8, w: 8.5, h: 0.7,
-      fontSize: 26,
-      fontFace: 'Georgia',
-      color: textDark,
-      bold: true,
-    });
-
-    // Gold underline
-    slide.addShape(pres.ShapeType.line, {
-      x: 0.7, y: 1.55, w: 2, h: 0,
-      line: { color: gold, width: 2 },
-    });
-
-    let startY = 1.9;
-
-    if (product.imageUrl) {
-      try {
-        const base64Img = await fetchImageAsBase64(product.imageUrl);
-        if (base64Img) {
-          slide.addImage({ data: base64Img, x: 0.7, y: 1.9, w: 2.5, h: 2.5, sizing: { type: 'contain', w: 2.5, h: 2.5 } });
-          startY = 4.7; // shift table down
-        } else {
-          slide.addText("[Image Unavailable]", { x: 0.7, y: 2.0, w: 2, h: 0.3, fontSize: 10, color: '8B7B74' });
-          startY = 2.4;
-        }
-      } catch (e) {
-        console.warn('PPT Image error:', e);
-      }
+    if (coverInfo.date) {
+      slideCover.addText(coverInfo.date, {
+        x: 0, y: 3.8, w: '100%', h: 0.5, align: 'center', fontSize: 12, fontFace: 'Arial', color: textBody
+      });
     }
-
-    // Product details table
-    const tableRows = [];
-
-    // Header row
-    tableRows.push([
-      { text: 'Specification', options: { bold: true, color: white, fill: { color: wine }, fontSize: 11 } },
-      { text: 'Details', options: { bold: true, color: white, fill: { color: wine }, fontSize: 11 } },
-    ]);
-
-    const specs = [
-      ['Price', `$${product.price.toLocaleString('en-US')}`],
-      ['Size', product.size || '—'],
-      ['Category', product.category || '—'],
-      ['Materials', product.materials && product.materials.length > 0 ? product.materials.join(', ') : product.material || '—'],
-      ['Buyer Categories', product.buyerCategories && product.buyerCategories.length > 0 ? product.buyerCategories.join(', ') : '—'],
-    ];
-
-    specs.forEach(([label, value], i) => {
-      const fillColor = i % 2 === 0 ? white : cream;
-      tableRows.push([
-        { text: label, options: { bold: true, color: textDark, fill: { color: fillColor }, fontSize: 11 } },
-        { text: value, options: { color: textBody, fill: { color: fillColor }, fontSize: 11 } },
-      ]);
-    });
-
-    slide.addTable(tableRows, {
-      x: 0.7, y: startY, w: 8.5,
-      border: { type: 'solid', pt: 0.5, color: 'E2D8CC' },
-      colW: [2.5, 6],
-      rowH: 0.5,
-      fontFace: 'Arial',
-    });
-
-    // Footer text
-    slide.addText('Generated by Oliver Mc Inroy Catalogue', {
-      x: 0.3, y: 7.05, w: 9.4, h: 0.35,
-      fontSize: 8,
-      fontFace: 'Arial',
-      color: white,
-      align: 'center',
-    });
   }
 
-  // Save
+  // ==========================================
+  // SLIDE 2: ABOUT US
+  // ==========================================
+  const slideAbout = pres.addSlide({ masterName: 'MASTER_DARK' });
+  try {
+    const aboutImg = await fetchImageAsBase64(self.location.origin + '/ppt_assets/about.png');
+    if (aboutImg) slideAbout.addImage({ data: aboutImg, x: 0, y: 0, w: '100%', h: '100%' });
+  } catch (err) { console.warn("Failed to load about.png"); }
+
+  // ==========================================
+  // SLIDE 3: INFOGRAPHIC
+  // ==========================================
+  const slideStats = pres.addSlide({ masterName: 'MASTER_DARK' });
+  try {
+    const statsImg = await fetchImageAsBase64(self.location.origin + '/ppt_assets/infographic.png');
+    if (statsImg) slideStats.addImage({ data: statsImg, x: 0, y: 0, w: '100%', h: '100%' });
+  } catch (err) { console.warn("Failed to load infographic.png"); }
+
+  // ==========================================
+  // SLIDES 4+: PRODUCTS (2 Per Page)
+  // ==========================================
+  for (let idx = 0; idx < products.length; idx += 2) {
+    const p1 = products[idx];
+    const p2 = products[idx + 1];
+    
+    // Add slide with Navy Background
+    const slide = pres.addSlide({ masterName: 'MASTER_DARK' });
+
+    // Function to draw a product at a specific X offset
+    const drawProduct = async (product, offsetX, index) => {
+      if (!product) return;
+      
+      try {
+        // Safe fixed sizes so nothing spills
+        const imgH = 2.4;
+        const startY = 0.5;
+
+        // Draw white box behind image area
+        slide.addShape(pres.ShapeType.rect, { x: offsetX, y: startY, w: 4.5, h: imgH, fill: { color: 'FFFFFF' } });
+        
+        // Images array handling (collect all images for the product)
+        let allImages = [];
+        if (product.imageUrl) allImages.push(product.imageUrl);
+        if (product.images && Array.isArray(product.images)) {
+          allImages.push(...product.images);
+        }
+        // Deduplicate just in case
+        allImages = [...new Set(allImages)];
+
+        if (allImages.length > 0) {
+          const drawImg = async (url, boxX, boxY, boxW, boxH) => {
+            const imgObj = await fetchImageWithDimensions(url);
+            if (!imgObj) throw new Error("Image failed");
+            let renderW = imgObj.width;
+            let renderH = imgObj.height;
+            const ratio = renderW / renderH;
+            const bRatio = boxW / boxH;
+            if (ratio > bRatio) {
+              renderW = boxW;
+              renderH = boxW / ratio;
+            } else {
+              renderH = boxH;
+              renderW = boxH * ratio;
+            }
+            const fX = boxX + (boxW - renderW) / 2;
+            const fY = boxY + (boxH - renderH) / 2;
+            slide.addImage({ data: imgObj.data, x: fX, y: fY, w: renderW, h: renderH });
+          };
+
+          try {
+            if (allImages.length === 1) {
+              await drawImg(allImages[0], offsetX, startY, 4.5, imgH);
+            } else if (allImages.length === 2) {
+              await drawImg(allImages[0], offsetX, startY, 2.2, imgH);
+              await drawImg(allImages[1], offsetX + 2.3, startY, 2.2, imgH);
+            } else if (allImages.length === 3) {
+              await drawImg(allImages[0], offsetX, startY, 1.4, imgH);
+              await drawImg(allImages[1], offsetX + 1.5, startY, 1.4, imgH);
+              await drawImg(allImages[2], offsetX + 3.0, startY, 1.4, imgH);
+            } else {
+              const halfH = imgH / 2 - 0.05;
+              await drawImg(allImages[0], offsetX, startY, 2.2, halfH);
+              await drawImg(allImages[1], offsetX + 2.3, startY, 2.2, halfH);
+              await drawImg(allImages[2], offsetX, startY + halfH + 0.1, 2.2, halfH);
+              await drawImg(allImages[3], offsetX + 2.3, startY + halfH + 0.1, 2.2, halfH);
+            }
+          } catch (e) {
+            slide.addText("[Image Unavailable]", { x: offsetX, y: startY + 1.0, w: 4.5, h: 0.5, fontSize: 10, align: 'center', color: '94A3B8' });
+          }
+        }
+
+        // Product Name
+        slide.addText(product.name, {
+          x: offsetX, y: 3.3, w: 4.5, h: 0.35, fontSize: 14, color: white, fontFace: 'Georgia', bold: true, breakLine: true, valign: 'top'
+        });
+
+        // Price
+        slide.addText(formatPrice(product.price), {
+          x: offsetX, y: 3.8, w: 4.5, h: 0.2, fontSize: 12, color: gold, fontFace: 'Arial', bold: true
+        });
+
+        // Specs (Size, Category, Material) side-by-side or stacked
+        let currentY = 4.1;
+        const addSpec = (label, value) => {
+          if (!value || value === '—') return;
+          slide.addText([
+            { text: label.toUpperCase() + ':   ', options: { color: gold, fontSize: 9, bold: true, fontFace: 'Arial' } },
+            { text: value, options: { color: textBody, fontSize: 9, fontFace: 'Arial' } }
+          ], { x: offsetX, y: currentY, w: 4.5, h: 0.2, valign: 'middle' });
+          currentY += 0.22;
+        };
+
+        addSpec('Size', product.size);
+        addSpec('Category', product.category);
+        addSpec('Material', product.materials && product.materials.length > 0 ? product.materials.join(', ') : product.material);
+        
+      } catch (err) {
+        console.error(`Failed to generate PPT for product ${product.id}`, err);
+      }
+    };
+
+    // Draw Left Product
+    await drawProduct(p1, 0.3, 0); // X = 0.3 inches
+    
+    // Draw Right Product
+    if (p2) {
+      await drawProduct(p2, 5.2, 1); // X = 5.2 inches
+    }
+  }
+
+  // ==========================================
+  // PENULTIMATE SLIDE: CLIENTS
+  // ==========================================
+  const slideClients = pres.addSlide({ masterName: 'MASTER_DARK' });
+  try {
+    const clientsImg = await fetchImageAsBase64(self.location.origin + '/ppt_assets/clients.png');
+    if (clientsImg) slideClients.addImage({ data: clientsImg, x: 0, y: 0, w: '100%', h: '100%' });
+  } catch (err) { console.warn("Failed to load clients.png"); }
+
+  // ==========================================
+  // FINAL SLIDE: CERTIFICATIONS
+  // ==========================================
+  const slideCerts = pres.addSlide({ masterName: 'MASTER_DARK' });
+  try {
+    const certsImg = await fetchImageAsBase64(self.location.origin + '/ppt_assets/certifications.png');
+    if (certsImg) slideCerts.addImage({ data: certsImg, x: 0, y: 0, w: '100%', h: '100%' });
+  } catch (err) { console.warn("Failed to load certifications.png"); }
+
+  // ==========================================
+  // EXPORT
+  // ==========================================
   const fileName = (coverInfo.title || 'catalogue').replace(/[^a-zA-Z0-9]/g, '_').toLowerCase();
   const buffer = await pres.write({ outputType: 'arraybuffer' });
   const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.presentationml.presentation' });

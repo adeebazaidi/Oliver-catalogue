@@ -5,6 +5,7 @@
 import { store } from '../store.js';
 import { icons } from '../icons.js';
 import { router } from '../router.js';
+import { formatPrice } from '../utils/currency.js';
 
 export function createProductCard(product) {
   const isSelected = store.isSelected(product.id);
@@ -14,12 +15,18 @@ export function createProductCard(product) {
   card.className = `product-card ${isSelected ? 'selected' : ''}`;
   card.dataset.productId = product.id;
 
+  const isIdbImage = product.imageUrl && product.imageUrl.startsWith('idb:');
+  const showImage = product.imageUrl && !isIdbImage;
+
   card.innerHTML = `
     <div class="product-card__image" style="cursor: pointer;" title="Click to select">
-      ${product.imageUrl
+      ${showImage
         ? `<img src="${product.imageUrl}" alt="${product.name}" onerror="this.style.display='none';this.nextElementSibling.style.display='flex';">`
         : ''}
-      <div class="product-card__placeholder" ${product.imageUrl ? 'style="display:none"' : ''}>${initials}</div>
+      ${isIdbImage
+        ? `<img data-idb-src="${product.id}" alt="${product.name}" style="display:none;" onerror="this.style.display='none';this.nextElementSibling.style.display='flex';">`
+        : ''}
+      <div class="product-card__placeholder" ${showImage ? 'style="display:none"' : ''}>${initials}</div>
     </div>
     <div class="product-card__checkbox">
       <div class="checkbox ${isSelected ? 'checked' : ''}" data-action="toggle-select" title="Select for catalogue">
@@ -35,7 +42,7 @@ export function createProductCard(product) {
       <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: var(--space-sm);">
         <div style="flex: 1; min-width: 0;">
           <div class="product-card__name" title="${product.name}">${product.name}</div>
-          <div class="product-card__price">$${product.price.toLocaleString('en-US')}</div>
+          <div class="product-card__price">${formatPrice(product.price)}</div>
         </div>
         <button class="btn btn-ghost btn-sm" data-action="edit-product" title="Edit Product" style="padding: 6px; border: 1px solid var(--border); color: var(--text-secondary); background: var(--bg-surface);">
           ${icons.edit}
@@ -47,6 +54,21 @@ export function createProductCard(product) {
       </div>
     </div>
   `;
+
+  // Lazy-load image from IndexedDB if needed
+  if (isIdbImage) {
+    const idbImg = card.querySelector('[data-idb-src]');
+    const placeholder = card.querySelector('.product-card__placeholder');
+    if (idbImg) {
+      store.resolveImageUrl(product.imageUrl).then(dataUrl => {
+        if (dataUrl) {
+          idbImg.src = dataUrl;
+          idbImg.style.display = '';
+          if (placeholder) placeholder.style.display = 'none';
+        }
+      });
+    }
+  }
 
   // Event handlers
   const toggleSelection = (e) => {
