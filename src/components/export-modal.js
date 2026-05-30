@@ -118,12 +118,6 @@ function renderStepContent() {
             <label class="form-label">Date</label>
             <input type="date" class="form-input" id="cover-date" value="${coverInfo.date}">
           </div>
-          
-          <!-- Back & Next buttons shifted upwards -->
-          <div style="display:flex; gap:var(--space-md); margin-top:var(--space-lg);">
-            <button class="btn btn-secondary" id="export-back">← Back</button>
-            <button class="btn btn-primary" id="export-next">Next →</button>
-          </div>
         </div>
         <div>
           <label class="form-label" style="margin-bottom:var(--space-md);">Preview</label>
@@ -161,8 +155,11 @@ function renderStepContent() {
       document.getElementById(id).addEventListener('input', updatePreview);
     });
 
-    footer.innerHTML = ``;
-    footer.style.display = 'none';
+    footer.innerHTML = `
+      <button class="btn btn-secondary" id="export-back">← Back</button>
+      <button class="btn btn-primary" id="export-next">Next →</button>
+    `;
+    if (footer) footer.style.display = 'flex';
   } else if (currentStep === 3) {
     // Step 3: Choose format
     content.innerHTML = `
@@ -210,7 +207,25 @@ function renderStepContent() {
   const nextBtn = document.getElementById('export-next');
 
   if (cancelBtn) cancelBtn.addEventListener('click', closeModal);
-  if (backBtn) backBtn.addEventListener('click', () => { currentStep--; renderModal(); });
+  if (backBtn) backBtn.addEventListener('click', () => {
+    currentStep--;
+    // Re-render step indicator and content without rebuilding the whole modal
+    document.querySelector('.export-steps').innerHTML = `
+      <div class="export-step ${currentStep >= 1 ? (currentStep > 1 ? 'completed' : 'active') : ''}">
+        <div class="export-step__dot">${currentStep > 1 ? icons.check : '1'}</div>
+        <span>Reorder</span>
+      </div>
+      <div class="export-step ${currentStep >= 2 ? (currentStep > 2 ? 'completed' : 'active') : ''}">
+        <div class="export-step__dot">${currentStep > 2 ? icons.check : '2'}</div>
+        <span>Cover Details</span>
+      </div>
+      <div class="export-step ${currentStep >= 3 ? 'active' : ''}">
+        <div class="export-step__dot">3</div>
+        <span>Export</span>
+      </div>
+    `;
+    renderStepContent();
+  });
   if (nextBtn) nextBtn.addEventListener('click', () => {
     if (currentStep === 2) {
       coverInfo.title = document.getElementById('cover-title').value || 'Product Catalogue';
@@ -219,7 +234,22 @@ function renderStepContent() {
       coverInfo.companyName = 'Oliver McInroy & Co.';
     }
     currentStep++;
-    renderModal();
+    // Re-render step indicator and content without rebuilding the whole modal
+    document.querySelector('.export-steps').innerHTML = `
+      <div class="export-step ${currentStep >= 1 ? (currentStep > 1 ? 'completed' : 'active') : ''}">
+        <div class="export-step__dot">${currentStep > 1 ? icons.check : '1'}</div>
+        <span>Reorder</span>
+      </div>
+      <div class="export-step ${currentStep >= 2 ? (currentStep > 2 ? 'completed' : 'active') : ''}">
+        <div class="export-step__dot">${currentStep > 2 ? icons.check : '2'}</div>
+        <span>Cover Details</span>
+      </div>
+      <div class="export-step ${currentStep >= 3 ? 'active' : ''}">
+        <div class="export-step__dot">3</div>
+        <span>Export</span>
+      </div>
+    `;
+    renderStepContent();
   });
 }
 

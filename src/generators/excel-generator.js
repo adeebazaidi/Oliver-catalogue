@@ -3,7 +3,6 @@
 // =============================================
 
 import ExcelJS from 'exceljs';
-import { saveAs } from 'file-saver';
 import { fetchImageAsBase64 } from '../utils/image-loader.js';
 import { getCurrencySymbol } from '../utils/currency.js';
 
@@ -96,9 +95,11 @@ export async function generateExcel(products, coverInfo) {
         try {
           const base64Img = await fetchImageAsBase64(product.imageUrl);
           if (base64Img) {
+            // ExcelJS expects raw base64 (no data-URL prefix)
+            const rawBase64 = base64Img.replace(/^data:image\/[a-z]+;base64,/, '');
             const imageId = workbook.addImage({
-              base64: base64Img,
-              extension: 'png',
+              base64: rawBase64,
+              extension: 'jpeg',
             });
             prodSheet.addImage(imageId, {
               tl: { col: 1.1, row: idx + 1.1 },

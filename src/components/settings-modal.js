@@ -1,8 +1,11 @@
 import { store } from '../store.js';
 import { icons } from '../icons.js';
 import { showToast } from './toast.js';
+import { showConfirm } from './confirm-dialog.js';
 import { router } from '../router.js';
 import { getCurrencySymbol, setCurrencySymbol } from '../utils/currency.js';
+import { db } from '../db.js';
+
 
 export function showSettingsModal() {
   const container = document.getElementById('modal-container');
@@ -290,8 +293,8 @@ export function showSettingsModal() {
 
     // Data Tab Listeners
     if (currentTab === 'data') {
-      document.getElementById('btn-export-data').addEventListener('click', () => {
-        const data = store.exportData();
+      document.getElementById('btn-export-data').addEventListener('click', async () => {
+        const data = await store.exportData();
         const blob = new Blob([data], { type: 'application/json' });
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
@@ -326,18 +329,26 @@ export function showSettingsModal() {
       });
 
       document.getElementById('btn-clear-data').addEventListener('click', async () => {
-        if (confirm("Are you sure you want to permanently delete all local data? This will clear all products, categories, and settings from your browser.")) {
-          // Clear localStorage themes/settings
+        const confirmed = await showConfirm({
+          title: 'Reset All Data',
+          message: 'This will permanently delete all products, categories, images, and settings from your browser. This cannot be undone.',
+          confirmText: 'Reset Everything',
+        });
+        if (!confirmed) return;
+
+        try {
+          // Close the Dexie instance first so the delete can proceed cleanly,
+          // but the safest cross-browser approach is to clear every table
+          // and then wipe localStorage — no need to drop the DB itself.
+          await db.clearAll();
+          // Also clear settings table (not included in clearAll)
+          await db.settings.clear();
           localStorage.clear();
-          
-          // Clear IndexedDB completely
-          const req = indexedDB.deleteDatabase('CatalogueGenDB');
-          req.onsuccess = () => {
-            location.reload();
-          };
-          req.onerror = () => {
-            showToast({ type: 'error', title: 'Reset Failed', message: 'Could not delete database.' });
-          };
+          showToast({ type: 'success', title: 'Data Reset', message: 'All local data has been cleared. Reloading…' });
+          setTimeout(() => location.reload(), 1200);
+        } catch (err) {
+          console.error('[Reset] Failed to clear data:', err);
+          showToast({ type: 'error', title: 'Reset Failed', message: 'Could not clear all data. Try again.' });
         }
       });
     }

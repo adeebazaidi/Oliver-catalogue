@@ -4,7 +4,6 @@
 
 import './styles/index.css';
 import './styles/animations.css';
-import './styles/animations.css';
 import { router } from './router.js';
 import { store } from './store.js';
 import { icons } from './icons.js';

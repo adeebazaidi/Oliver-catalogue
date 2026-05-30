@@ -559,7 +559,7 @@ class Store extends EventEmitter {
       this.emit('products-changed', this._products);
       this.emit('categories-changed', this._categories);
       this.emit('materials-changed', this._materials);
-      this.emit('buyer-categories-changed', this._buyerCategories);
+      this.emit('buyers-changed', this._buyerCategories);
 
       this._triggerSync();
       return true;

@@ -7,7 +7,7 @@ import { icons } from '../icons.js';
 import { router } from '../router.js';
 import { showToast } from '../components/toast.js';
 import { renderCategorySelector } from '../components/category-selector.js';
-import { compressImage } from '../utils/image-loader.js';
+import { compressImage, normalizeImageUrl } from '../utils/image-loader.js';
 
 export function renderAddProductPage(container) {
   let selectedCategory = '';
@@ -128,7 +128,11 @@ export function renderAddProductPage(container) {
     }
   };
 
-  imgInput.addEventListener('input', (e) => updatePreview(e.target.value.trim()));
+  imgInput.addEventListener('input', (e) => {
+    const cleaned = normalizeImageUrl(e.target.value.trim());
+    if (cleaned !== e.target.value) e.target.value = cleaned;  // replace wrapper URL in-place
+    updatePreview(cleaned);
+  });
 
   const handleFile = async (e) => {
     const file = e.target.files?.[0] || e.dataTransfer?.files?.[0];
@@ -185,7 +189,7 @@ export function renderAddProductPage(container) {
       materials: selectedMaterials,
       category: selectedCategory,
       buyerCategories: selectedBuyers,
-      imageUrl: document.getElementById('add-image').value,
+      imageUrl: normalizeImageUrl(document.getElementById('add-image').value),
     });
 
     showToast({

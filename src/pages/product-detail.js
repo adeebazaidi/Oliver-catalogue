@@ -9,7 +9,7 @@ import { router } from '../router.js';
 import { showConfirm } from '../components/confirm-dialog.js';
 import { showToast } from '../components/toast.js';
 import { renderCategorySelector } from '../components/category-selector.js';
-import { compressImage } from '../utils/image-loader.js';
+import { compressImage, normalizeImageUrl } from '../utils/image-loader.js';
 import { formatPrice } from '../utils/currency.js';
 
 let isEditing = false;
@@ -137,10 +137,23 @@ function renderViewMode(container, product) {
             ${product.imageUrl && !product.imageUrl.startsWith('idb:') ? `
               <div class="card" style="padding: var(--space-md); margin-bottom: 0;">
                 <div class="product-detail__field" style="padding: 0;">
-                  <div class="product-detail__field-label" style="margin-bottom: 2px;">Image URL</div>
-                  <div class="product-detail__field-value text-sm" style="word-break:break-all;color:var(--text-secondary);font-size:0.8rem;font-family:monospace;">
-                    ${product.imageUrl}
-                  </div>
+                  <div class="product-detail__field-label" style="margin-bottom: 4px;">Image URL</div>
+                  <div style="
+                    max-height: 72px;
+                    overflow-y: auto;
+                    overflow-x: hidden;
+                    word-break: break-all;
+                    white-space: pre-wrap;
+                    font-size: 0.78rem;
+                    font-family: monospace;
+                    color: var(--text-secondary);
+                    background: var(--bg-surface);
+                    border: 1px solid var(--border-subtle);
+                    border-radius: var(--radius-sm);
+                    padding: 6px 8px;
+                    line-height: 1.5;
+                    user-select: all;
+                  ">${product.imageUrl}</div>
                 </div>
               </div>
             ` : product.imageUrl && product.imageUrl.startsWith('idb:') ? `
@@ -349,7 +362,11 @@ function renderEditMode(container, product) {
     }
   };
 
-  imgInput.addEventListener('input', (e) => updatePreview(e.target.value.trim()));
+  imgInput.addEventListener('input', (e) => {
+    const cleaned = normalizeImageUrl(e.target.value.trim());
+    if (cleaned !== e.target.value) e.target.value = cleaned;  // replace wrapper URL in-place
+    updatePreview(cleaned);
+  });
 
   const handleFile = async (e) => {
     const file = e.target.files?.[0] || e.dataTransfer?.files?.[0];
@@ -401,7 +418,7 @@ function renderEditMode(container, product) {
       materials: editMaterials,
       category: editCategory,
       buyerCategories: editBuyers,
-      imageUrl: document.getElementById('edit-image').value,
+      imageUrl: normalizeImageUrl(document.getElementById('edit-image').value),
     });
 
     if (updated) {

@@ -14,6 +14,7 @@ export async function generatePDF(products, coverInfo) {
   const gold = [212, 175, 55]; // #D4AF37
   const white = [255, 255, 255];
   const textBody = [226, 232, 240]; // E2E8F0
+  const textMuted = [148, 163, 184]; // #94A3B8
 
   const drawNavyBackground = () => {
     doc.setFillColor(...navy);
@@ -100,8 +101,8 @@ export async function generatePDF(products, coverInfo) {
         const imgH = 2.4;
         const startY = 0.5;
 
-        // Draw white box behind image area
-        doc.setFillColor(255, 255, 255);
+        // Navy background behind image area (matches slide so letterbox bars are invisible)
+        doc.setFillColor(...navy);
         doc.rect(offsetX, startY, 4.5, imgH, 'F');
 
         // Collect all images
